@@ -1,14 +1,14 @@
 package it.unitn.ds1;
-import akka.actor.ActorRef;
+
 import akka.actor.AbstractActor;
-import java.util.Random;
-import java.io.Serializable;
+import akka.actor.ActorRef;
 import akka.actor.Props;
-import java.util.List;
+
+import java.io.Serializable;
 import java.util.ArrayList;
-import java.lang.Thread;
-import java.lang.InterruptedException;
 import java.util.Collections;
+import java.util.List;
+import java.util.Random;
 
 class Chatter extends AbstractActor {
   

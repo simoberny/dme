@@ -2,17 +2,14 @@ package it.unitn.ds1;
 
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
-import akka.actor.Props;
+import it.unitn.ds1.Chatter.JoinGroupMsg;
+import it.unitn.ds1.Chatter.PrintHistoryMsg;
+import it.unitn.ds1.Chatter.StartChatMsg;
 
-import java.io.Serializable;
-import java.util.List;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.io.IOException;
-
-import it.unitn.ds1.Chatter.JoinGroupMsg;
-import it.unitn.ds1.Chatter.StartChatMsg;
-import it.unitn.ds1.Chatter.PrintHistoryMsg;
+import java.util.List;
 
 public class CausalMulticast {
   final private static int N_LISTENERS = 10; // number of listening actors
