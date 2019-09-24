@@ -2,6 +2,9 @@ package it.unitn.ds1;
 
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
+import it.unitn.ds1.Chatter.JoinGroupMsg;
+import it.unitn.ds1.Chatter.PrintHistoryMsg;
+import it.unitn.ds1.Chatter.StartChatMsg;
 import scala.concurrent.duration.Duration;
 
 import java.io.IOException;
@@ -19,24 +22,24 @@ public class Dme {
 
         // Tree creation
         tree.add(system.actorOf(
-                Node.props(id++, new Integer [] {2}), "node1"));
+                Node.props(id++, new Integer[]{2}), "node1"));
         tree.add(system.actorOf(
-                Node.props(id++, new Integer [] {1, 3}), "node2"));
+                Node.props(id++, new Integer[]{1, 3}), "node2"));
         tree.add(system.actorOf(
-                Node.props(id++, new Integer [] {2, 4}), "node3"));
+                Node.props(id++, new Integer[]{2, 4}), "node3"));
         tree.add(system.actorOf(
-                Node.props(id++, new Integer [] {3, 5, 6}), "node4"));
+                Node.props(id++, new Integer[]{3, 5, 6}), "node4"));
         tree.add(system.actorOf(
-                Node.props(id++, new Integer [] {4}), "node5"));
+                Node.props(id++, new Integer[]{4}), "node5"));
         tree.add(system.actorOf(
-                Node.props(id++, new Integer [] {4}), "node6"));
+                Node.props(id++, new Integer[]{4}), "node6"));
 
         // Ensure that no one can modify the group
         tree = Collections.unmodifiableList(tree);
 
         // Send the tree node list to everyone in the group
         Node.TreeCreation join = new Node.TreeCreation(tree);
-        for (ActorRef peer: tree) {
+        for (ActorRef peer : tree) {
             peer.tell(join, null);
         }
 
@@ -58,17 +61,17 @@ public class Dme {
             System.in.read();
 
             Node.PrintHistoryMsg msg = new Node.PrintHistoryMsg();
-            for (ActorRef peer: tree) {
+            for (ActorRef peer : tree) {
                 peer.tell(msg, null);
             }
             System.out.println(">>> Press ENTER to exit <<<");
             System.in.read();
+        } catch (IOException ioe) {
         }
-        catch (IOException ioe) {}
         system.terminate();
     }
 
-    private static void floodTokenPosition(List<ActorRef> tree){
+    private static void floodTokenPosition(List<ActorRef> tree) {
         try {
             Thread.sleep(100);
         } catch (InterruptedException e) {
