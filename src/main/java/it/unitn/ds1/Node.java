@@ -3,9 +3,11 @@ package it.unitn.ds1;
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import akka.actor.Props;
+import scala.concurrent.duration.Duration;
 
 import java.io.Serializable;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 public class Node extends AbstractActor {
     // Node id
@@ -69,6 +71,10 @@ public class Node extends AbstractActor {
                 getSelf().path().name(), this.tree.size(), this.id);
     }
 
+    /**
+     * Procedura per inizializzare il flood del posizionamento del token
+     * @param msg Default message placeholder
+     */
     private void onStartTokenFlood(Node.StartTokenFlood msg) {
         this.token = true;
         this.holder_id = this.id;
@@ -79,6 +85,10 @@ public class Node extends AbstractActor {
         multicast(mx, getSelf());
     }
 
+    /**
+     * Messaggio di flood con le informazioni sul token
+     * @param msg struttura con le informazioni sul mittente del flood
+     */
     private void onFloodMsg(Node.FloodMsg msg) {
         this.holder_id = msg.senderId;
 
@@ -88,6 +98,10 @@ public class Node extends AbstractActor {
         multicast(mx, msg.sender);
     }
 
+    /**
+     * Procedura per inizializzare l'invio di una richiesta del token da parte di un nodo
+     * @param msg Contiene la durata che il nodo passa nella critical section
+     */
     private void onStartTokenRequest(Node.StartTokenRequest msg) {
         if (!requested && !token) {
             this.requested = true;
@@ -97,27 +111,56 @@ public class Node extends AbstractActor {
         }
     }
 
+    /**
+     * Arrivo del messaggio di richiesta Token
+     * @param msg Messaggio di tipo TokenRequest che contiene richiedente originale e mittente relativo
+     */
     private void onTokenRequest(Node.TokenRequest msg) {
         updateVC(msg.vc);
 
+        // Se il richiedente non c'è in lista, aggiungo una entry
         if (notInList(msg))
             mq.add(msg);
 
+        // Se ho il token
         if (this.token) {
             System.out.println("Richiesta arrivata! \n");
+
+            checkPrivilege();
 
             // Controllo se il nodo token lo sta utilizzando
             if (!cs && !mq.isEmpty())
                 dequeueAndPrivilege();
-        } else {
+        } else { // Altrimenti inoltro
             sendTokenRequest(msg.req_node_id);
         }
     }
 
+    /**
+     * Metodo per l'invio/inoltro in unicast della richiesta di token
+     *
+     * @param source_req Id del nodo che ha generato la richiesta
+     */
+    private void sendTokenRequest(int source_req) {
+        vc[id - 1]++;
+
+        System.out.println("Nodo " + this.id + " richiede il token a " + this.holder_id + " da parte di " + source_req + " -- vc: " + Arrays.toString(this.vc));
+
+        // Creo richiesta e mando in unicast
+        TokenRequest re = new TokenRequest(this.id, source_req, vc);
+        unicast(re, this.holder_id);
+    }
+
+    /**
+     * Funzione per avviare la procedura per mandare il privilegio
+     */
     private void dequeueAndPrivilege() {
         TokenRequest rq = mq.get(0);
+        mq.remove(0);
 
-        System.out.println("Accetto richiesta del nodo " + rq.req_node_id + " -- Mando privilegio a " + rq.senderId);
+        System.out.print("Accetto richiesta del nodo " + rq.req_node_id + " -- Mando privilegio a " + rq.senderId + " con coda richieste [");
+        for (int i = 0; i < mq.size(); i++) System.out.print(mq.get(i).req_node_id + ", ");
+        System.out.println("] \n");
 
         this.token = false;
         this.holder_id = rq.senderId;
@@ -129,6 +172,15 @@ public class Node extends AbstractActor {
         mq.clear();
     }
 
+    private void checkPrivilege(){
+        if(mq.get(0).req_node_id == this.id)
+            mq.remove(0);
+    }
+
+    /**
+     * Arrivo di un PRIVILEGE MESSAGE
+     * @param msg contiene mittente e richieste in sospeso del nodo che possedeva il token
+     */
     private void onPrivilegeMessage(PrivilegeMessage msg) {
         updateVC(msg.vc);
 
@@ -139,10 +191,16 @@ public class Node extends AbstractActor {
             this.requested = false;
 
             // Assegno al nuovo owner le eventuali richieste ancora in sospeso
-            this.mq.addAll(msg.requests);
+            for(int i = 0; i < msg.requests.size(); i++) {
+                TokenRequest t = new TokenRequest(msg.senderId, msg.requests.get(i).req_node_id, msg.requests.get(i).vc);
+                this.mq.add(t);
+            }
 
-            System.out.println("Nuovo proprietario token! " + " Nodo - " + this.id);
+            System.out.println("Nuovo proprietario token! " + " Nodo - " + this.id + " con coda di richieste: [");
+            for (int i = 0; i < mq.size(); i++) System.out.print(mq.get(i).req_node_id + ", ");
+            System.out.println("] \n");
 
+            //Nodo entra nella critical section
             enterCS();
 
         } else { // Se non l'ho raggiunto
@@ -154,7 +212,11 @@ public class Node extends AbstractActor {
                 if (m.req_node_id == msg.new_owner) {
                     I.remove();
 
-                    System.out.println("Inoltro privilegio a " + m.senderId + " -- vc: " + Arrays.toString(this.vc));
+                    System.out.print("Inoltro privilegio a " + m.senderId + " -- vc: " + Arrays.toString(this.vc) + " con coda [");
+
+                    for (int i = 0; i < msg.requests.size(); i++) System.out.print(msg.requests.get(i).req_node_id + ", ");
+
+                    System.out.println("] \n");
 
                     // Nuovo holder
                     this.holder_id = m.senderId;
@@ -164,11 +226,14 @@ public class Node extends AbstractActor {
                     unicast(pv, m.senderId);
                 }
             }
-
-            mq.clear();
         }
     }
 
+    /**
+     * Funzione per controllare che un nodo non sia in lista
+     * @param msg nodo da controllare
+     * @return boolean
+     */
     private boolean notInList(TokenRequest msg) {
         Iterator<TokenRequest> I = mq.iterator();
         while (I.hasNext()) {
@@ -190,32 +255,34 @@ public class Node extends AbstractActor {
     private void enterCS() {
         System.out.println("Node " + this.id + " entering CS... ");
         this.cs = true;
-        try {
-            Thread.sleep(this.duration);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        this.cs = false;
-        System.out.println("Node " + this.id + " exiting CS... ");
 
-        // Se quando esco dalla critical ho già richieste nella coda, invio dreoman
-        if (!mq.isEmpty() && mq.get(0).req_node_id != id) {
-            dequeueAndPrivilege();
-        }
+        // Setto l'invio di un messaggio a se stessi per la fine del processo. NON BLOCCANTE
+        getContext().system().scheduler().scheduleOnce(
+                Duration.create(this.duration, TimeUnit.MILLISECONDS),
+                getSelf(),
+                new CS(), // the message to send
+                getContext().system().dispatcher(), getSelf()
+        );
     }
 
     /**
-     * Metodo per l'invio/inoltro in unicast della richiesta di token
-     *
-     * @param source_req Id del nodo che ha generato la richiesta
+     * Quando il nodo ha finito di usare il token
+     * @param msg
      */
-    private void sendTokenRequest(int source_req) {
-        vc[id - 1]++;
+    public void onCS(CS msg) {
+        this.cs = false;
+        System.out.print("Node " + this.id + " exiting CS... La mia coda: [");
 
-        System.out.println("Nodo " + this.id + " richiede il token a " + this.holder_id + " da parte di " + source_req + " -- vc: " + Arrays.toString(this.vc));
+        for (int i = 0; i < mq.size(); i++) System.out.print(mq.get(i).req_node_id + ", ");
 
-        TokenRequest re = new TokenRequest(this.id, source_req, vc);
-        unicast(re, this.holder_id);
+        System.out.println("] \n");
+
+        checkPrivilege();
+
+        // Se quando esco dalla critical ho già richieste nella coda, invio dreoman
+        if (!mq.isEmpty()) {
+            dequeueAndPrivilege();
+        }
     }
 
     /**
@@ -270,6 +337,7 @@ public class Node extends AbstractActor {
                 .match(Node.StartTokenRequest.class, this::onStartTokenRequest)
                 .match(Node.TokenRequest.class, this::onTokenRequest)
                 .match(Node.PrivilegeMessage.class, this::onPrivilegeMessage)
+                .match(Node.CS.class, this::onCS)
                 .build();
     }
 
@@ -286,6 +354,8 @@ public class Node extends AbstractActor {
 
     public static class PrintHistoryMsg implements Serializable {
     }
+
+    public static class CS implements Serializable {}
 
     public static class StartTokenRequest implements Serializable {
         private final int cs_duration;
@@ -335,6 +405,10 @@ public class Node extends AbstractActor {
             this.vc = new int[vc.length];
             for (int i = 0; i < vc.length; i++)
                 this.vc[i] = vc[i];
+        }
+
+        public String toString(){
+            return "" + this.req_node_id;
         }
     }
 

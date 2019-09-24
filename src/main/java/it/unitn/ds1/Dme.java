@@ -47,14 +47,22 @@ public class Dme {
         floodTokenPosition(tree);
 
         // Creation of two token request
-        system.scheduler().schedule(
+        /*system.scheduler().schedule(
                 Duration.create(1, TimeUnit.SECONDS),
                 Duration.create(5, TimeUnit.SECONDS),
-                tree.get(3), new Node.StartTokenRequest(2000), system.dispatcher(), null);
+                tree.get(3), new Node.StartTokenRequest(2000), system.dispatcher(), null);*/
         system.scheduler().schedule(
                 Duration.create(1, TimeUnit.SECONDS),
                 Duration.create(3, TimeUnit.SECONDS),
-                tree.get(4), new Node.StartTokenRequest(2000), system.dispatcher(), null);
+                tree.get(4), new Node.StartTokenRequest(10000), system.dispatcher(), null);
+        system.scheduler().schedule(
+                Duration.create(2, TimeUnit.SECONDS),
+                Duration.create(5, TimeUnit.SECONDS),
+                tree.get(2), new Node.StartTokenRequest(2000), system.dispatcher(), null);
+        system.scheduler().schedule(
+                Duration.create(2, TimeUnit.SECONDS),
+                Duration.create(5, TimeUnit.SECONDS),
+                tree.get(5), new Node.StartTokenRequest(2000), system.dispatcher(), null);
 
         try {
             System.out.println(">>> Wait for the chats to stop and press ENTER <<<");
