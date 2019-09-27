@@ -2,9 +2,6 @@ package it.unitn.ds1;
 
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
-import it.unitn.ds1.Chatter.JoinGroupMsg;
-import it.unitn.ds1.Chatter.PrintHistoryMsg;
-import it.unitn.ds1.Chatter.StartChatMsg;
 import scala.concurrent.duration.Duration;
 
 import java.io.IOException;
