@@ -2,6 +2,10 @@ plugins {
     id 'java'
 }
 
+apply plugin: 'application'
+mainClassName = 'it.unitn.ds1.Dme'
+
+
 group 'it.unitn.ds1'
 version '1.0-SNAPSHOT'
 

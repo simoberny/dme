@@ -1,3 +1,5 @@
+/////!!!!!!!!!!!!!!!!!!! cosa succede alla mq al privilege message arrive
+
 package it.unitn.ds1;
 
 import akka.actor.AbstractActor;
@@ -58,6 +60,7 @@ public class Node extends AbstractActor {
         return Props.create(Node.class, () -> new Node(id, neighbors));
     }
 
+    //dati gli id dei vicini, vado a prendermi gli actor ref e li metto in neighbors_ref!
     private void onTreeCreation(Node.TreeCreation msg) {
         this.tree = msg.tree;
 
@@ -142,7 +145,7 @@ public class Node extends AbstractActor {
      * @param source_req Id del nodo che ha generato la richiesta
      */
     private void sendTokenRequest(int source_req) {
-        vc[id - 1]++;
+        vc[id - 1]++;   //-1 perchè i nodi cominciano da 1 (primo nodo è 1), ma le posizioni da 0
 
         System.out.println("Nodo " + this.id + " richiede il token a " + this.holder_id + " da parte di " + source_req + " -- vc: " + Arrays.toString(this.vc));
 
@@ -204,7 +207,7 @@ public class Node extends AbstractActor {
             enterCS();
 
         } else { // Se non l'ho raggiunto
-            Iterator<TokenRequest> I = mq.iterator();
+            Iterator<TokenRequest> I = mq.iterator();  
             while (I.hasNext()) {
                 TokenRequest m = I.next();
 
@@ -340,6 +343,8 @@ public class Node extends AbstractActor {
                 .match(Node.CS.class, this::onCS)
                 .build();
     }
+    
+    //all the message classes
 
     public static class TreeCreation implements Serializable {
         private final List<ActorRef> tree; // list of group members
@@ -367,7 +372,7 @@ public class Node extends AbstractActor {
 
     public static class FloodMsg implements Serializable {
         public final int distance;
-        public final int tokenId;
+        public final int tokenId;       //proprietario del token
         public final int senderId;
         public final ActorRef sender;
 

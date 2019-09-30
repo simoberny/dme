@@ -60,7 +60,10 @@ public class Dme {
                 Duration.create(2, TimeUnit.SECONDS),
                 Duration.create(5, TimeUnit.SECONDS),
                 tree.get(5), new Node.StartTokenRequest(2000), system.dispatcher(), null);
-
+        
+        System.out.println(">>> Press ENTER to exit <<<");
+    
+/*
         try {
             System.out.println(">>> Wait for the chats to stop and press ENTER <<<");
             System.in.read();
@@ -74,11 +77,13 @@ public class Dme {
         } catch (IOException ioe) {
         }
         system.terminate();
+*/
     }
+
 
     private static void floodTokenPosition(List<ActorRef> tree) {
         try {
-            Thread.sleep(100);
+            Thread.sleep(100);   // aspetto che tutti i nodi siano stati creati   
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
