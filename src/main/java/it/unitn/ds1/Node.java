@@ -1,5 +1,6 @@
-/////!!!!!!!!!!!!!!!!!!! cosa succede alla mq al privilege message arrive
 
+
+//!!!!!!!!!!!!TODO: verficare se il nodo non si è fermato perchè era nella cs allora non può nemmeno ripartire!
 package it.unitn.ds1;
 
 import akka.actor.AbstractActor;
@@ -50,14 +51,18 @@ public class Node extends AbstractActor {
      * @param id        ID del nodo da inizializzare
      * @param neighbors Lista vicini
      */
-    public Node(int id, Integer[] neighbors) {
+    public Node(int id, Integer[] neighbors, boolean restart) {
         this.id = id;
         this.neighbors_id = Arrays.asList(neighbors);
         this.neighbors_ref = new ArrayList<>();
+        if (restart){
+            restart_procedure();
+        }
     }
 
-    static public Props props(int id, Integer[] neighbors) {
-        return Props.create(Node.class, () -> new Node(id, neighbors));
+    static public Props props(int id, Integer[] neighbors, boolean restart) {        
+        return Props.create(Node.class, () -> new Node(id, neighbors, restart));
+        
     }
 
     //dati gli id dei vicini, vado a prendermi gli actor ref e li metto in neighbors_ref!
@@ -65,7 +70,7 @@ public class Node extends AbstractActor {
         this.tree = msg.tree;
 
         for (Integer id : neighbors_id) {
-            this.neighbors_ref.add(this.tree.get(id - 1));
+            this.neighbors_ref.add(this.tree.get(id));
         }
 
         // create the vector clock
@@ -97,7 +102,7 @@ public class Node extends AbstractActor {
 
         //System.out.println("Nodo " + this.id + " --> Ricevuto da " + msg.senderId + " -- Il token è a " + msg.tokenId + " -- Holder: " + this.holder_id + " -- Distanza: " + msg.distance);
 
-        FloodMsg mx = new FloodMsg(this.id, getSelf(), msg.tokenId, msg.distance + 1);
+        FloodMsg mx = new FloodMsg(this.id, getSelf(), msg.tokenId, msg.distance +1);
         multicast(mx, msg.sender);
     }
 
@@ -145,8 +150,7 @@ public class Node extends AbstractActor {
      * @param source_req Id del nodo che ha generato la richiesta
      */
     private void sendTokenRequest(int source_req) {
-        vc[id - 1]++;   //-1 perchè i nodi cominciano da 1 (primo nodo è 1), ma le posizioni da 0
-
+        vc[id]++;
         System.out.println("Nodo " + this.id + " richiede il token a " + this.holder_id + " da parte di " + source_req + " -- vc: " + Arrays.toString(this.vc));
 
         // Creo richiesta e mando in unicast
@@ -176,8 +180,10 @@ public class Node extends AbstractActor {
     }
 
     private void checkPrivilege(){
-        if(mq.get(0).req_node_id == this.id)
-            mq.remove(0);
+        if(mq.size()!= 0){
+            if(mq.get(0).req_node_id == this.id)
+                mq.remove(0);
+        }
     }
 
     /**
@@ -250,9 +256,9 @@ public class Node extends AbstractActor {
     }
 
     private void updateVC(int[] msgVC) {
-        vc[id - 1]++;
+        vc[id]++;
         for (int i = 0; i < vc.length; i++)
-            if (i != id - 1) vc[i] = Math.max(vc[i], msgVC[i]);
+            if (i != id) vc[i] = Math.max(vc[i], msgVC[i]);
     }
 
     private void enterCS() {
@@ -287,6 +293,22 @@ public class Node extends AbstractActor {
             dequeueAndPrivilege();
         }
     }
+    /**
+     * Destroy a node (for failure simulation); to restart the node call props with restart param true
+     * @param msg
+     */
+    private void onStop(Node.Stop msg) {
+        if(!cs){
+            System.out.print("SSSSSTOP   Node " + this.id + " stopping... La mia coda: [");
+
+            for (int i = 0; i < mq.size(); i++) System.out.print(mq.get(i).req_node_id + ", ");
+
+            System.out.println("] \n");
+            getContext().stop(getSelf());
+        }else{
+            System.out.println("Node " + this.id + "is in the CS and can't be stopped! try to stop it later");            
+        }
+    }
 
     /**
      * Metodo per l'invio in unicast di un messaggio ad uno specifico nodo
@@ -295,7 +317,7 @@ public class Node extends AbstractActor {
      * @param to L'id del nodo a cui inviare il messaggio
      */
     private void unicast(Serializable m, int to) {
-        ActorRef p = tree.get(to - 1);
+        ActorRef p = tree.get(to);
         p.tell(m, getSelf());
 
         try {
@@ -329,6 +351,13 @@ public class Node extends AbstractActor {
     private void printHistory(Node.PrintHistoryMsg msg) {
         System.out.printf("%02d: %b holderid: " + this.holder_id + "\n", this.id, this.token);
     }
+    
+    private void restart_procedure() {
+        System.out.println("RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRrestart node"+id);
+       
+    }
+    
+    
 
     @Override
     public Receive createReceive() {
@@ -341,6 +370,7 @@ public class Node extends AbstractActor {
                 .match(Node.TokenRequest.class, this::onTokenRequest)
                 .match(Node.PrivilegeMessage.class, this::onPrivilegeMessage)
                 .match(Node.CS.class, this::onCS)
+                .match(Node.Stop.class, this::onStop)
                 .build();
     }
     
@@ -439,4 +469,8 @@ public class Node extends AbstractActor {
                 this.vc[i] = vc[i];
         }
     }
+    
+    public static class Stop implements Serializable {}
+
+
 }
