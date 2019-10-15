@@ -6,6 +6,7 @@ package it.unitn.ds1;
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import akka.actor.Props;
+import static it.unitn.ds1.Dme.neighbor;
 import scala.concurrent.duration.Duration;
 
 import java.io.Serializable;
@@ -46,22 +47,25 @@ public class Node extends AbstractActor {
 
     // Generatore di random
     private Random rnd = new Random();
+    
+    //variabili e classi per la procedura di recovery    
+    
+    static List<Neighbor_data> neighbors_data;       
+    
+
 
     /**
      * @param id        ID del nodo da inizializzare
      * @param neighbors Lista vicini
      */
-    public Node(int id, Integer[] neighbors, boolean restart) {
+    public Node(int id, Integer[] neighbors) {
         this.id = id;
         this.neighbors_id = Arrays.asList(neighbors);
-        this.neighbors_ref = new ArrayList<>();
-        if (restart){
-            restart_procedure();
-        }
+        this.neighbors_ref = new ArrayList<>();        
     }
 
-    static public Props props(int id, Integer[] neighbors, boolean restart) {        
-        return Props.create(Node.class, () -> new Node(id, neighbors, restart));
+    static public Props props(int id, Integer[] neighbors) {        
+        return Props.create(Node.class, () -> new Node(id, neighbors));
         
     }
 
@@ -297,19 +301,7 @@ public class Node extends AbstractActor {
      * Destroy a node (for failure simulation); to restart the node call props with restart param true
      * @param msg
      */
-    private void onStop(Node.Stop msg) {
-        if(!cs){
-            System.out.print("SSSSSTOP   Node " + this.id + " stopping... La mia coda: [");
-
-            for (int i = 0; i < mq.size(); i++) System.out.print(mq.get(i).req_node_id + ", ");
-
-            System.out.println("] \n");
-            getContext().stop(getSelf());
-        }else{
-            System.out.println("Node " + this.id + "is in the CS and can't be stopped! try to stop it later");            
-        }
-    }
-
+    
     /**
      * Metodo per l'invio in unicast di un messaggio ad uno specifico nodo
      *
@@ -352,11 +344,54 @@ public class Node extends AbstractActor {
         System.out.printf("%02d: %b holderid: " + this.holder_id + "\n", this.id, this.token);
     }
     
-    private void restart_procedure() {
-        System.out.println("RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRrestart node"+id);
-       
+    
+    
+    /////////////////////////// failure management porcedures/////////////////////////////////
+    
+    
+    private void onRestart(Node.Restart msg){
+        
+        System.out.println("RECOVER PROCEDURE \t \t Restarting node "+id+"  sending to all neighbor a Recover request");
+        neighbors_data = new LinkedList();
+        multicast(new RecoverRequest(this.id), getSelf());       
+    }
+        
+    private void onStop(Node.Stop msg) {
+        if(!cs){
+            System.out.print("SSSSSTOP  \t \t Node " + this.id + " stopping... La mia coda: [");
+
+            for (int i = 0; i < mq.size(); i++) System.out.print(mq.get(i).req_node_id + ", ");
+
+            System.out.println("] \n");
+            getContext().stop(getSelf());
+        }else{
+            System.out.println("Node " + this.id + "is in the CS and can't be stopped! try to stop it later");            
+        }
+    } 
+    
+    private void onRecoverRequest(Node.RecoverRequest m) {
+        System.out.println("RECOVER PROCEDURE \t \t Received a Recover request from "+m.id+" to "+ this.id);
+        unicast(new Neighbor_data(this.id, this.mq, this.holder_id, this.requested), m.id);       
     }
     
+    private void onRecoverResponse(Node.Neighbor_data d) {
+        System.out.println("RECOVER PROCEDURE \t \t Received a Recover RESPONSE from "+d.getID());
+        neighbors_data.add(d);
+        if(neighbors_data.size() == neighbors_id.size()){
+            System.out.println("RECOVER PROCEDURE \t \t All the neighbors data are collected, start to recover the internal varibles");
+            recover_internal_varibles();
+        }       
+    }
+    
+    private void recover_internal_varibles(){
+         for (Neighbor_data n : neighbors_data) {
+            if( n.requested && n.holder_id==this.id){
+                System.out.println("caso 2 per "+n.holder_id+" aggiungo il nodo all coda mq");
+                mq.add()
+            }
+            if
+        }
+    }
     
 
     @Override
@@ -370,7 +405,10 @@ public class Node extends AbstractActor {
                 .match(Node.TokenRequest.class, this::onTokenRequest)
                 .match(Node.PrivilegeMessage.class, this::onPrivilegeMessage)
                 .match(Node.CS.class, this::onCS)
+                .match(Node.Restart.class, this::onRestart)
                 .match(Node.Stop.class, this::onStop)
+                .match(Node.RecoverRequest.class, this::onRecoverRequest)
+                .match(Node.Neighbor_data.class, this::onRecoverResponse)                
                 .build();
     }
     
@@ -471,6 +509,35 @@ public class Node extends AbstractActor {
     }
     
     public static class Stop implements Serializable {}
+    
+    public static class Restart implements Serializable {}
+        
+    public static class RecoverRequest implements Serializable {
+        public int id;
+        public RecoverRequest(int id){
+            this.id = id;
+        }
+    }
+    
+    public static class Neighbor_data implements Serializable {
+        int neighbor_id;
+        private List<TokenRequest> mq;
+        int holder_id;
+        boolean requested;
+         
+        public Neighbor_data(int id, List<TokenRequest> mq,int holder_id,boolean requested){
+            this.neighbor_id = id;
+            this.mq = mq;
+            this.holder_id = holder_id;
+            this.requested = requested;            
+        }
+        public int getID (){
+            return neighbor_id;
+        }
+    }
+    
+
+
 
 
 }
