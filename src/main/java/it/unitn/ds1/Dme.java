@@ -52,7 +52,7 @@ public class Dme {
         }
 
         // Flood token position
-        floodTokenPosition(2);
+        floodTokenPosition(1);
 
         // Creation of two token request
         /*system.scheduler().schedule(
@@ -60,15 +60,15 @@ public class Dme {
                 Duration.create(5, TimeUnit.SECONDS),
                 tree.get(3), new Node.StartTokenRequest(2000), system.dispatcher(), null);*/
         system.scheduler().scheduleOnce(
-                Duration.create(1, TimeUnit.SECONDS),                
-                tree.get(4), new Node.StartTokenRequest(100), system.dispatcher(), null);
+                Duration.create(2, TimeUnit.SECONDS),                
+                tree.get(2), new Node.StartTokenRequest(1000), system.dispatcher(), null);
         system.scheduler().scheduleOnce(
-                Duration.create(1, TimeUnit.SECONDS),                
+                Duration.create(2, TimeUnit.SECONDS),                
                 tree.get(0), new Node.StartTokenRequest(1000), system.dispatcher(), null);
         system.scheduler().scheduleOnce(
-                Duration.create(1, TimeUnit.SECONDS),                
-                tree.get(1), new Node.StartTokenRequest(100), system.dispatcher(), null);
-        
+                Duration.create(8, TimeUnit.SECONDS),                
+                tree.get(5), new Node.StartTokenRequest(1000), system.dispatcher(), null);
+       /* 
         system.scheduler().scheduleOnce(
                 Duration.create(8, TimeUnit.SECONDS),
                 tree.get(3), new Node.Stop(), system.dispatcher(), null);
@@ -83,15 +83,14 @@ public class Dme {
                 }
             },system.dispatcher());
         }
+        */
         
-        // schedula creazione 
         
         //TODO: stop akka con invio 
         
     }
 
-   
-    
+      
     private static void restart(int node){         
             ActorRef a =system.actorOf(
                 Node.props(node, neighbor.get(node)), "Node"+node);
