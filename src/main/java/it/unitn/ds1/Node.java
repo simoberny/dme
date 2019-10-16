@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit;
 
 public class Node extends AbstractActor {
     // Node id
-    private final int id;
+    public final int id;
 
     // Node that have the token boolean
     private boolean token = false;
@@ -174,7 +174,7 @@ public class Node extends AbstractActor {
         unicast(pv, rq.senderId);
 
         // Rimuovo tutte le richieste in quanto le ho inoltrate con il messaggio di PRIVILEGIO al nuovo owner del token
-        mq.clear();
+        /////////ATTENZIONEEEEEEEEE///////////!!!!!!!!!!!!!!!!!!!!!!!!mq.clear();
     }
 
     private void checkPrivilege(){
@@ -211,14 +211,14 @@ public class Node extends AbstractActor {
 
         } else { // Se non l'ho raggiunto
             Iterator<TokenRequest> I = mq.iterator();  
-            while (I.hasNext()) {
+            
                 TokenRequest m = I.next();
 
                 // mando il privilegio al primo della mia lista!                
                     
                     I.remove();
 
-                    System.out.print("Inoltro privilegio a " + m.senderId + " con coda [");
+                    System.out.print("Nodo: "+this.id+" Inoltro privilegio a " + m.senderId + " con coda [");
 
                     for (int i = 0; i < msg.requests.size(); i++) System.out.print(msg.requests.get(i).senderId + ", ");
 
@@ -231,7 +231,7 @@ public class Node extends AbstractActor {
                     PrivilegeMessage pv = new PrivilegeMessage(this.id, msg.requests);
                     unicast(pv, m.senderId);
                 
-            }
+            
         }
     }
 
