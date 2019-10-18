@@ -159,7 +159,7 @@ public class Node extends AbstractActor {
      * Funzione per avviare la procedura per mandare il privilegio
      */
     private void dequeueAndPrivilege() {
-        TokenRequest rq = mq.get(0);
+        TokenRequest rq = this.mq.get(0);
 
         System.out.print("TOKEN REQUEST: \t \t Accetto richiesta del nodo " + rq.req_node_id + " -- Mando privilegio a " + rq.senderId + " con coda richieste [");
         for (int i = 0; i < mq.size(); i++) System.out.print(mq.get(i).req_node_id + ", ");
@@ -168,11 +168,11 @@ public class Node extends AbstractActor {
         this.token = false;
         this.holder_id = rq.senderId;
 
-        PrivilegeMessage pv = new PrivilegeMessage(this.id, rq.req_node_id, mq);
+        PrivilegeMessage pv = new PrivilegeMessage(this.id, rq.req_node_id, new ArrayList<>(mq));
         unicast(pv, rq.senderId);
 
         // Rimuovo tutte le richieste in quanto le ho inoltrate con il messaggio di PRIVILEGIO al nuovo owner del token
-        mq.clear();
+        this.mq.clear();
     }
 
     /**
@@ -192,15 +192,19 @@ public class Node extends AbstractActor {
      * @param msg contiene mittente e richieste in sospeso del nodo che possedeva il token
      */
     private void onPrivilegeMessage(PrivilegeMessage msg) {
+        System.out.print("PRIVILEGE MESSAGE: \t \t  lista richieste in ingresso al nodo" + this.id + "[");
+        for (int i = 0; i < msg.requests.size(); i++) System.out.print(msg.requests.get(i).req_node_id + ", ");
+        System.out.println("]");
+
         System.out.print("PRIVILEGE MESSAGE: \t \t lista locale nodo: " + this.id + " : [");
-        for (int i = 0; i < mq.size(); i++) System.out.print(mq.get(i).req_node_id + ", ");
+        for (int i = 0; i < this.mq.size(); i++) System.out.print(this.mq.get(i).req_node_id + ", ");
         System.out.println("] ");
             
         for (TokenRequest i : msg.requests){
             if(notInList(i)){
                 TokenRequest t = new TokenRequest(msg.senderId, i.req_node_id);
-                mq.add(t);
-                System.out.println("PRIVILEGE MESSAGE: \t \t \t Aggiungo a lista: " + i.req_node_id);
+                this.mq.add(t);
+                System.out.println("PRIVILEGE MESSAGE: \t \t + \t Aggiungo a lista: " + i.req_node_id);
             }
         }        
 
@@ -251,10 +255,9 @@ public class Node extends AbstractActor {
      * @return boolean
      */
     private boolean notInList(TokenRequest msg) {
-        Iterator<TokenRequest> I = mq.iterator();
+        Iterator<TokenRequest> I = this.mq.iterator();
         while (I.hasNext()) {
             TokenRequest m = I.next();
-
             if (msg.req_node_id == m.req_node_id)
                 return false;
         }
@@ -283,13 +286,13 @@ public class Node extends AbstractActor {
         this.cs = false;
 
         System.out.print("\nCS: \t\t Node " + this.id + " exiting CS... La mia coda: [");
-        for (int i = 0; i < mq.size(); i++) System.out.print(mq.get(i).req_node_id + ", ");
+        for (int i = 0; i < this.mq.size(); i++) System.out.print(this.mq.get(i).req_node_id + ", ");
         System.out.println("] \n");
 
         checkPrivilege();
 
         // Se quando esco dalla critical ho già richieste nella coda, invio dreoman
-        if (!mq.isEmpty()) {
+        if (!this.mq.isEmpty()) {
             dequeueAndPrivilege();
         }
     }
