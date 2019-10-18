@@ -43,7 +43,6 @@ public class Node extends AbstractActor {
     private List<ActorRef> tree; // the list of peers (the multicast group)
 
     // Vector for causal events
-    private int[] vc;        // the local vector clock
 
     // Generatore di random
     private Random rnd = new Random();
@@ -78,9 +77,7 @@ public class Node extends AbstractActor {
         }
 
         // create the vector clock
-        this.vc = new int[this.tree.size()];
-        System.out.printf("%s: joining a group of %d peers with ID %02d. Neighbors: " + this.neighbors_ref.toString() + "\n",
-                getSelf().path().name(), this.tree.size(), this.id);
+        System.out.printf("FLOOD PROCEDURE: \t \t Tree update on node: " + this.id);
     }
 
     /**
@@ -115,11 +112,13 @@ public class Node extends AbstractActor {
      * @param msg Contiene la durata che il nodo passa nella critical section
      */
     private void onStartTokenRequest(Node.StartTokenRequest msg) {
-        if (!requested && !token) {
-            this.requested = true;
+        if (!requested && !token) {            
             this.duration = msg.cs_duration;
-            System.out.println("Avvio richiesta token da " + this.id + "\n");
+            System.out.println("TOKEN REQUEST \t \t: Avvio richiesta token da " + this.id);  
+            TokenRequest re = new TokenRequest(this.id, this.id);
+            mq.add(re);
             sendTokenRequest(this.id);
+            
         }
     }
 
@@ -128,7 +127,6 @@ public class Node extends AbstractActor {
      * @param msg Messaggio di tipo TokenRequest che contiene richiedente originale e mittente relativo
      */
     private void onTokenRequest(Node.TokenRequest msg) {
-        updateVC(msg.vc);
 
         // Se il richiedente non c'è in lista, aggiungo una entry
         if (notInList(msg))
@@ -136,7 +134,7 @@ public class Node extends AbstractActor {
 
         // Se ho il token
         if (this.token) {
-            System.out.println("Richiesta arrivata! \n");
+            System.out.println("TOKEN REQUEST \t \t : Richiesta arrivata! da(seder): "+msg.senderId+ "per conto di (required) "+ msg.req_node_id);
 
             checkPrivilege();
 
@@ -154,11 +152,11 @@ public class Node extends AbstractActor {
      * @param source_req Id del nodo che ha generato la richiesta
      */
     private void sendTokenRequest(int source_req) {
-        vc[id]++;
-        System.out.println("Nodo " + this.id + " richiede il token a " + this.holder_id + " da parte di " + source_req + " -- vc: " + Arrays.toString(this.vc));
-
+        System.out.println("TOKEN REQUEST \t \t: Nodo " + this.id + " richiede il token a " + this.holder_id + " da parte di " + source_req );
+        this.requested = true;
+        
         // Creo richiesta e mando in unicast
-        TokenRequest re = new TokenRequest(this.id, source_req, vc);
+        TokenRequest re = new TokenRequest(this.id, source_req);
         unicast(re, this.holder_id);
     }
 
@@ -169,14 +167,14 @@ public class Node extends AbstractActor {
         TokenRequest rq = mq.get(0);
         mq.remove(0);
 
-        System.out.print("Accetto richiesta del nodo " + rq.req_node_id + " -- Mando privilegio a " + rq.senderId + " con coda richieste [");
+        System.out.print("TOKEN REQUEST: \t \t: Accetto richiesta del nodo " + rq.req_node_id + " -- Mando privilegio a " + rq.senderId + " con coda richieste [");
         for (int i = 0; i < mq.size(); i++) System.out.print(mq.get(i).req_node_id + ", ");
-        System.out.println("] \n");
+        System.out.println("]");
 
         this.token = false;
         this.holder_id = rq.senderId;
 
-        PrivilegeMessage pv = new PrivilegeMessage(this.id, rq.req_node_id, mq, vc);
+        PrivilegeMessage pv = new PrivilegeMessage(this.id, rq.req_node_id, mq);
         unicast(pv, rq.senderId);
 
         // Rimuovo tutte le richieste in quanto le ho inoltrate con il messaggio di PRIVILEGIO al nuovo owner del token
@@ -195,7 +193,17 @@ public class Node extends AbstractActor {
      * @param msg contiene mittente e richieste in sospeso del nodo che possedeva il token
      */
     private void onPrivilegeMessage(PrivilegeMessage msg) {
-        updateVC(msg.vc);
+        
+        System.out.print("PRIVILEGE MESSAGE \t \t lista locale nodo: " + this.id + " : [");
+        for (int i = 0; i < mq.size(); i++) System.out.print(mq.get(i).req_node_id + ", ");
+            System.out.println("] ");
+            
+        for (TokenRequest i : msg.requests){
+            if(notInList(i)){
+                TokenRequest t = new TokenRequest(msg.senderId, i.req_node_id);
+                mq.add(t);
+            }
+        }        
 
         // Se ho raggiunto il richiedente del token
         if (this.id == msg.new_owner) {
@@ -203,17 +211,13 @@ public class Node extends AbstractActor {
             this.holder_id = this.id;
             this.requested = false;
 
-            // Assegno al nuovo owner le eventuali richieste ancora in sospeso
-            for(int i = 0; i < msg.requests.size(); i++) {
-                TokenRequest t = new TokenRequest(msg.senderId, msg.requests.get(i).req_node_id, msg.requests.get(i).vc);
-                this.mq.add(t);
-            }
-
-            System.out.println("Nuovo proprietario token! " + " Nodo - " + this.id + " con coda di richieste: [");
+            
+            System.out.print("PRIVILEGE MESSAGE \t \t :Nuovo proprietario token! " + " Nodo - " + this.id + " con coda di richieste: [");
             for (int i = 0; i < mq.size(); i++) System.out.print(mq.get(i).req_node_id + ", ");
-            System.out.println("] \n");
+            System.out.println("]");
 
-            //Nodo entra nella critical section
+            //Nodo entra nella critical section 
+            //NOTE:: nella cs faccio check privlege per eliminare il primo valore nella coda che sono io
             enterCS();
 
         } else { // Se non l'ho raggiunto
@@ -223,9 +227,9 @@ public class Node extends AbstractActor {
 
                 // Controllo se nel nodo intermedio è passata una richiesta con id = a quello che sarà il nuovo owner
                 if (m.req_node_id == msg.new_owner) {
-                    I.remove();
+                    I.remove();                    
 
-                    System.out.print("Inoltro privilegio a " + m.senderId + " -- vc: " + Arrays.toString(this.vc) + " con coda [");
+                    System.out.print("PRIVILEGE MESSAGE \t \t :Inoltro privilegio a " + m.senderId + " con coda [");
 
                     for (int i = 0; i < msg.requests.size(); i++) System.out.print(msg.requests.get(i).req_node_id + ", ");
 
@@ -235,9 +239,10 @@ public class Node extends AbstractActor {
                     this.holder_id = m.senderId;
 
                     // Se ho trovato la richiesta, inoltro il privilegio al sender da cui arrivò la richiesta
-                    PrivilegeMessage pv = new PrivilegeMessage(this.id, msg.new_owner, msg.requests, vc);
+                    PrivilegeMessage pv = new PrivilegeMessage(this.id, msg.new_owner, msg.requests);
                     unicast(pv, m.senderId);
                 }
+                if(this.mq.size() == 0) requested = false;
             }
         }
     }
@@ -259,12 +264,7 @@ public class Node extends AbstractActor {
         return true;
     }
 
-    private void updateVC(int[] msgVC) {
-        vc[id]++;
-        for (int i = 0; i < vc.length; i++)
-            if (i != id) vc[i] = Math.max(vc[i], msgVC[i]);
-    }
-
+    
     private void enterCS() {
         System.out.println("Node " + this.id + " entering CS... ");
         this.cs = true;
@@ -379,18 +379,54 @@ public class Node extends AbstractActor {
         neighbors_data.add(d);
         if(neighbors_data.size() == neighbors_id.size()){
             System.out.println("RECOVER PROCEDURE \t \t All the neighbors data are collected, start to recover the internal varibles");
+            for (Neighbor_data n : neighbors_data){
+                 System.out.print("neighbor: "+n.neighbor_id+" with mq queue: [");
+                 for (int i = 0; i < n.mq.size(); i++) System.out.print(n.mq.get(i).req_node_id + ", ");
+                System.out.println("],  holder_ID: "+n.holder_id+ " ha richiesto token? "+n.requested );
+            }             
+           
             recover_internal_varibles();
         }       
     }
     
     private void recover_internal_varibles(){
-         for (Neighbor_data n : neighbors_data) {
-            if( n.requested && n.holder_id==this.id){
-                System.out.println("caso 2 per "+n.holder_id+" aggiungo il nodo all coda mq");
-                mq.add()
-            }
-            if
+        this.token = true;
+        for (Neighbor_data n : neighbors_data) { 
+            if(n.holder_id != this.id) this.token = false;
         }
+        if(!this.token){
+            Neighbor_data holder = null;
+            for (Neighbor_data n : neighbors_data) { 
+                if(n.holder_id != this.id)  holder = n;                
+            }
+            for(TokenRequest i : holder.mq){
+                if(this.id == i.req_node_id){
+                    this.requested = true;
+                }
+            }
+        }else{
+            this.requested = false;
+        } 
+        
+        for (Neighbor_data n : neighbors_data) {
+            if(n.requested){                                
+                for(TokenRequest t : n.mq){
+                    this.mq.add(new TokenRequest(n.neighbor_id, t.req_node_id));
+                }               
+            }        
+        }
+        
+        System.out.println(this);
+    }
+    
+    public String toString(){        
+        String ret = "PRINT \t \t Node id: "+this.id+ " has token: "+this.token+" has send reqest for token: "+this.requested+ " with mq queue: [";
+        for (int i = 0; i < this.mq.size(); i++) {
+            ret += this.mq.get(i).req_node_id + ", ";
+        }
+        ret += "] \n";
+        
+        return ret;
     }
     
 
@@ -463,21 +499,17 @@ public class Node extends AbstractActor {
     public static class TokenRequest implements Serializable {
         public final int senderId;
         public final int req_node_id;
-        public final int[] vc;
-
+       
         /**
          * Messaggio richiesta Token
          *
          * @param senderId    ID nodo mittente
          * @param req_node_id ID nodo che ha originato la richiesta
-         * @param vc          Vettore Vectorclock
          */
-        public TokenRequest(int senderId, int req_node_id, int[] vc) {
+        public TokenRequest(int senderId, int req_node_id) {
             this.senderId = senderId;
             this.req_node_id = req_node_id;
-            this.vc = new int[vc.length];
-            for (int i = 0; i < vc.length; i++)
-                this.vc[i] = vc[i];
+            
         }
 
         public String toString(){
@@ -489,7 +521,6 @@ public class Node extends AbstractActor {
         public final int senderId;
         public final int new_owner;
         public final List<TokenRequest> requests;
-        public final int[] vc;
 
         /**
          * Messaggio per la risoluzione della richiesta
@@ -498,13 +529,11 @@ public class Node extends AbstractActor {
          * @param new_owner ID nodo che deterrà il token
          * @param requests  Vettore con le eventuali richieste in sospeso del precedente proprietario
          */
-        public PrivilegeMessage(int senderId, int new_owner, List<TokenRequest> requests, int[] vc) {
+        public PrivilegeMessage(int senderId, int new_owner, List<TokenRequest> requests) {
             this.senderId = senderId;
             this.new_owner = new_owner;
             this.requests = requests;
-            this.vc = new int[vc.length];
-            for (int i = 0; i < vc.length; i++)
-                this.vc[i] = vc[i];
+            
         }
     }
     

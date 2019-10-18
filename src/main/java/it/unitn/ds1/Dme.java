@@ -61,21 +61,21 @@ public class Dme {
                 tree.get(3), new Node.StartTokenRequest(2000), system.dispatcher(), null);*/
         system.scheduler().scheduleOnce(
                 Duration.create(1, TimeUnit.SECONDS),                
-                tree.get(4), new Node.StartTokenRequest(100), system.dispatcher(), null);
+                tree.get(5), new Node.StartTokenRequest(30000), system.dispatcher(), null);
         system.scheduler().scheduleOnce(
-                Duration.create(1, TimeUnit.SECONDS),                
+                Duration.create(2, TimeUnit.SECONDS),                
                 tree.get(0), new Node.StartTokenRequest(1000), system.dispatcher(), null);
         system.scheduler().scheduleOnce(
-                Duration.create(1, TimeUnit.SECONDS),                
-                tree.get(1), new Node.StartTokenRequest(100), system.dispatcher(), null);
+                Duration.create(3, TimeUnit.SECONDS),                
+                tree.get(4), new Node.StartTokenRequest(1000), system.dispatcher(), null);
         
         system.scheduler().scheduleOnce(
-                Duration.create(8, TimeUnit.SECONDS),
+                Duration.create(10, TimeUnit.SECONDS),
                 tree.get(3), new Node.Stop(), system.dispatcher(), null);
         
-        if(!tree.get(4).isTerminated()){
+        if(!tree.get(3).isTerminated()){
             system.scheduler().scheduleOnce(
-                Duration.create(9, TimeUnit.SECONDS),
+                Duration.create(13, TimeUnit.SECONDS),
                 new Runnable() {
                     @Override
                     public void run() {
@@ -83,6 +83,7 @@ public class Dme {
                 }
             },system.dispatcher());
         }
+
         
         // schedula creazione 
         
