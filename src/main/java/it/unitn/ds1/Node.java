@@ -147,7 +147,7 @@ public class Node extends AbstractActor {
      * @param source_req Id del nodo che ha generato la richiesta
      */
     private void sendTokenRequest(int source_req) {
-        System.out.println("TOKEN REQUEST \t \t: Nodo " + this.id + " richiede il token a " + this.holder_id + " da parte di " + source_req );
+        System.out.println("TOKEN REQUEST: \t \t Nodo " + this.id + " richiede il token a " + this.holder_id + " da parte di " + source_req );
         this.requested = true;
         
         // Creo richiesta e mando in unicast
@@ -192,10 +192,6 @@ public class Node extends AbstractActor {
      * @param msg contiene mittente e richieste in sospeso del nodo che possedeva il token
      */
     private void onPrivilegeMessage(PrivilegeMessage msg) {
-        System.out.print("PRIVILEGE MESSAGE: \t \t  lista richieste in ingresso al nodo" + this.id + "[");
-        for (int i = 0; i < msg.requests.size(); i++) System.out.print(msg.requests.get(i).req_node_id + ", ");
-        System.out.println("]");
-
         System.out.print("PRIVILEGE MESSAGE: \t \t lista locale nodo: " + this.id + " : [");
         for (int i = 0; i < this.mq.size(); i++) System.out.print(this.mq.get(i).req_node_id + ", ");
         System.out.println("] ");
@@ -204,7 +200,7 @@ public class Node extends AbstractActor {
             if(notInList(i)){
                 TokenRequest t = new TokenRequest(msg.senderId, i.req_node_id);
                 this.mq.add(t);
-                System.out.println("PRIVILEGE MESSAGE: \t \t + \t Aggiungo a lista: " + i.req_node_id);
+                System.out.println("PRIVILEGE MESSAGE: \t \t +  Aggiungo a lista: " + i.req_node_id);
             }
         }        
 
@@ -214,11 +210,11 @@ public class Node extends AbstractActor {
             this.holder_id = this.id;
             this.requested = false;
 
-            System.out.println("\n--------------------------------------------------");
+            System.out.println("\n----------------------------------------------------------------------------------------------------");
             System.out.print("PRIVILEGE MESSAGE: \t \t \t Nuovo proprietario token! " + " Nodo - " + this.id + " con coda di richieste: [");
             for (int i = 0; i < mq.size(); i++) System.out.print(mq.get(i).req_node_id + ", ");
             System.out.println("]");
-            System.out.println("--------------------------------------------------");
+            System.out.println("----------------------------------------------------------------------------------------------------");
 
             //Nella cs faccio check privlege per eliminare il primo valore nella coda che sono io
             enterCS();
@@ -350,11 +346,11 @@ public class Node extends AbstractActor {
         
     private void onStop(Node.Stop msg) {
         if(!cs){
-            System.out.println("\n.....................................................");
+            System.out.println("\n................................................................................");
             System.out.print("STOP: \t\t Node " + this.id + " stopping... La mia coda: [");
             for (int i = 0; i < mq.size(); i++) System.out.print(mq.get(i).req_node_id + ", ");
             System.out.println("]");
-            System.out.println(".....................................................\n");
+            System.out.println("................................................................................\n");
 
             getContext().stop(getSelf());
         }else{
@@ -413,7 +409,7 @@ public class Node extends AbstractActor {
     }
     
     public String toString(){
-        String ret = "--------------------------------------------------------------------------------------------------------------";
+        String ret = "\n--------------------------------------------------------------------------------------------------------------";
         ret += "\nDATA RECOVERED: \t \t Node id: "+this.id+ " has token: "+this.token+" has send reqest for token: "+this.requested+ " with mq queue: [";
         for (int i = 0; i < this.mq.size(); i++) {
             ret += this.mq.get(i).req_node_id + ", ";
