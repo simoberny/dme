@@ -1,6 +1,3 @@
-
-
-//!!!!!!!!!!!!TODO: verficare se il nodo non si è fermato perchè era nella cs allora non può nemmeno ripartire!
 package it.unitn.ds1;
 
 import akka.actor.AbstractActor;
@@ -12,6 +9,8 @@ import scala.concurrent.duration.Duration;
 import java.io.Serializable;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+
+//TODO: verficare se il nodo non si è fermato perchè era nella cs allora non può nemmeno ripartire!
 
 public class Node extends AbstractActor {
     // Node id
@@ -47,11 +46,8 @@ public class Node extends AbstractActor {
     // Generatore di random
     private Random rnd = new Random();
     
-    //variabili e classi per la procedura di recovery    
-    
+    //variabili e classi per la procedura di recovery
     static List<Neighbor_data> neighbors_data;       
-    
-
 
     /**
      * @param id        ID del nodo da inizializzare
@@ -77,7 +73,7 @@ public class Node extends AbstractActor {
         }
 
         // create the vector clock
-        System.out.printf("FLOOD PROCEDURE: \t \t Tree update on node: " + this.id);
+        System.out.println("FLOOD PROCEDURE: \t \t Tree update on node: " + this.id);
     }
 
     /**
@@ -88,7 +84,7 @@ public class Node extends AbstractActor {
         this.token = true;
         this.holder_id = this.id;
 
-        //System.out.println("Nodo " + this.id + " --> Mando in flood pos token!\n");
+        System.out.println("FLOOD PROCEDURE: \t \t Inizio flood token position!\n");
 
         FloodMsg mx = new FloodMsg(this.id, getSelf(), this.id, 0);
         multicast(mx, getSelf());
@@ -114,11 +110,10 @@ public class Node extends AbstractActor {
     private void onStartTokenRequest(Node.StartTokenRequest msg) {
         if (!requested && !token) {            
             this.duration = msg.cs_duration;
-            System.out.println("TOKEN REQUEST \t \t: Avvio richiesta token da " + this.id);  
+            System.out.println("TOKEN REQUEST: \t \t Avvio richiesta token da " + this.id);
             TokenRequest re = new TokenRequest(this.id, this.id);
             mq.add(re);
             sendTokenRequest(this.id);
-            
         }
     }
 
@@ -134,7 +129,7 @@ public class Node extends AbstractActor {
 
         // Se ho il token
         if (this.token) {
-            System.out.println("TOKEN REQUEST \t \t : Richiesta arrivata! da(seder): "+msg.senderId+ "per conto di (required) "+ msg.req_node_id);
+            System.out.println("TOKEN REQUEST: \t \t Richiesta arrivata! da (sender): " + msg.senderId + " per conto di (richiesta) " + msg.req_node_id);
 
             checkPrivilege();
 
@@ -165,9 +160,8 @@ public class Node extends AbstractActor {
      */
     private void dequeueAndPrivilege() {
         TokenRequest rq = mq.get(0);
-        mq.remove(0);
 
-        System.out.print("TOKEN REQUEST: \t \t: Accetto richiesta del nodo " + rq.req_node_id + " -- Mando privilegio a " + rq.senderId + " con coda richieste [");
+        System.out.print("TOKEN REQUEST: \t \t Accetto richiesta del nodo " + rq.req_node_id + " -- Mando privilegio a " + rq.senderId + " con coda richieste [");
         for (int i = 0; i < mq.size(); i++) System.out.print(mq.get(i).req_node_id + ", ");
         System.out.println("]");
 
@@ -181,10 +175,15 @@ public class Node extends AbstractActor {
         mq.clear();
     }
 
+    /**
+     *  Procedure to check after the CS if myself is on top of the requests
+     */
     private void checkPrivilege(){
         if(mq.size()!= 0){
-            if(mq.get(0).req_node_id == this.id)
+            if(mq.get(0).req_node_id == this.id) {
+                System.out.println("CHECK PRIVILEGE: \t \t Mi auto elimino (id): " + this.id);
                 mq.remove(0);
+            }
         }
     }
 
@@ -193,15 +192,15 @@ public class Node extends AbstractActor {
      * @param msg contiene mittente e richieste in sospeso del nodo che possedeva il token
      */
     private void onPrivilegeMessage(PrivilegeMessage msg) {
-        
-        System.out.print("PRIVILEGE MESSAGE \t \t lista locale nodo: " + this.id + " : [");
+        System.out.print("PRIVILEGE MESSAGE: \t \t lista locale nodo: " + this.id + " : [");
         for (int i = 0; i < mq.size(); i++) System.out.print(mq.get(i).req_node_id + ", ");
-            System.out.println("] ");
+        System.out.println("] ");
             
         for (TokenRequest i : msg.requests){
             if(notInList(i)){
                 TokenRequest t = new TokenRequest(msg.senderId, i.req_node_id);
                 mq.add(t);
+                System.out.println("PRIVILEGE MESSAGE: \t \t \t Aggiungo a lista: " + i.req_node_id);
             }
         }        
 
@@ -211,13 +210,13 @@ public class Node extends AbstractActor {
             this.holder_id = this.id;
             this.requested = false;
 
-            
-            System.out.print("PRIVILEGE MESSAGE \t \t :Nuovo proprietario token! " + " Nodo - " + this.id + " con coda di richieste: [");
+            System.out.println("\n--------------------------------------------------");
+            System.out.print("PRIVILEGE MESSAGE: \t \t \t Nuovo proprietario token! " + " Nodo - " + this.id + " con coda di richieste: [");
             for (int i = 0; i < mq.size(); i++) System.out.print(mq.get(i).req_node_id + ", ");
             System.out.println("]");
+            System.out.println("--------------------------------------------------");
 
-            //Nodo entra nella critical section 
-            //NOTE:: nella cs faccio check privlege per eliminare il primo valore nella coda che sono io
+            //Nella cs faccio check privlege per eliminare il primo valore nella coda che sono io
             enterCS();
 
         } else { // Se non l'ho raggiunto
@@ -229,10 +228,8 @@ public class Node extends AbstractActor {
                 if (m.req_node_id == msg.new_owner) {
                     I.remove();                    
 
-                    System.out.print("PRIVILEGE MESSAGE \t \t :Inoltro privilegio a " + m.senderId + " con coda [");
-
+                    System.out.print("PRIVILEGE MESSAGE: \t \t Inoltro privilegio a " + m.senderId + " con coda [");
                     for (int i = 0; i < msg.requests.size(); i++) System.out.print(msg.requests.get(i).req_node_id + ", ");
-
                     System.out.println("] \n");
 
                     // Nuovo holder
@@ -242,6 +239,7 @@ public class Node extends AbstractActor {
                     PrivilegeMessage pv = new PrivilegeMessage(this.id, msg.new_owner, msg.requests);
                     unicast(pv, m.senderId);
                 }
+
                 if(this.mq.size() == 0) requested = false;
             }
         }
@@ -263,10 +261,9 @@ public class Node extends AbstractActor {
 
         return true;
     }
-
     
     private void enterCS() {
-        System.out.println("Node " + this.id + " entering CS... ");
+        System.out.println("\nCS: \t\t Node " + this.id + " entering CS... \n");
         this.cs = true;
 
         // Setto l'invio di un messaggio a se stessi per la fine del processo. NON BLOCCANTE
@@ -284,10 +281,9 @@ public class Node extends AbstractActor {
      */
     public void onCS(CS msg) {
         this.cs = false;
-        System.out.print("Node " + this.id + " exiting CS... La mia coda: [");
 
+        System.out.print("\nCS: \t\t Node " + this.id + " exiting CS... La mia coda: [");
         for (int i = 0; i < mq.size(); i++) System.out.print(mq.get(i).req_node_id + ", ");
-
         System.out.println("] \n");
 
         checkPrivilege();
@@ -297,10 +293,6 @@ public class Node extends AbstractActor {
             dequeueAndPrivilege();
         }
     }
-    /**
-     * Destroy a node (for failure simulation); to restart the node call props with restart param true
-     * @param msg
-     */
     
     /**
      * Metodo per l'invio in unicast di un messaggio ad uno specifico nodo
@@ -343,46 +335,44 @@ public class Node extends AbstractActor {
     private void printHistory(Node.PrintHistoryMsg msg) {
         System.out.printf("%02d: %b holderid: " + this.holder_id + "\n", this.id, this.token);
     }
-    
-    
-    
-    /////////////////////////// failure management porcedures/////////////////////////////////
-    
-    
+
+    // FAILURE MANAGEMENT PROCEDURE //
+
     private void onRestart(Node.Restart msg){
         
-        System.out.println("RECOVER PROCEDURE \t \t Restarting node "+id+"  sending to all neighbor a Recover request");
+        System.out.println("RECOVER PROCEDURE: \t \t Restarting node "+id+"  sending to all neighbor a Recover request");
         neighbors_data = new LinkedList();
         multicast(new RecoverRequest(this.id), getSelf());       
     }
         
     private void onStop(Node.Stop msg) {
         if(!cs){
-            System.out.print("SSSSSTOP  \t \t Node " + this.id + " stopping... La mia coda: [");
-
+            System.out.println("\n.....................................................");
+            System.out.print("STOP: \t\t Node " + this.id + " stopping... La mia coda: [");
             for (int i = 0; i < mq.size(); i++) System.out.print(mq.get(i).req_node_id + ", ");
+            System.out.println("]");
+            System.out.println(".....................................................\n");
 
-            System.out.println("] \n");
             getContext().stop(getSelf());
         }else{
-            System.out.println("Node " + this.id + "is in the CS and can't be stopped! try to stop it later");            
+            System.out.println("STOP: \t\t Node " + this.id + "is in the CS and can't be stopped! try to stop it later");
         }
     } 
     
     private void onRecoverRequest(Node.RecoverRequest m) {
-        System.out.println("RECOVER PROCEDURE \t \t Received a Recover request from "+m.id+" to "+ this.id);
+        System.out.println("RECOVER PROCEDURE: \t \t Received a Recover request from "+m.id+" to "+ this.id);
         unicast(new Neighbor_data(this.id, this.mq, this.holder_id, this.requested), m.id);       
     }
     
     private void onRecoverResponse(Node.Neighbor_data d) {
-        System.out.println("RECOVER PROCEDURE \t \t Received a Recover RESPONSE from "+d.getID());
+        System.out.println("RECOVER PROCEDURE: \t \t Received a Recover RESPONSE from "+d.getID());
         neighbors_data.add(d);
         if(neighbors_data.size() == neighbors_id.size()){
-            System.out.println("RECOVER PROCEDURE \t \t All the neighbors data are collected, start to recover the internal varibles");
+            System.out.println("RECOVER PROCEDURE: \t \t All the neighbors data are collected, start to recover the internal varibles");
             for (Neighbor_data n : neighbors_data){
-                 System.out.print("neighbor: "+n.neighbor_id+" with mq queue: [");
+                 System.out.print("\t\t neighbor: "+n.neighbor_id+" with mq queue: [");
                  for (int i = 0; i < n.mq.size(); i++) System.out.print(n.mq.get(i).req_node_id + ", ");
-                System.out.println("],  holder_ID: "+n.holder_id+ " ha richiesto token? "+n.requested );
+                 System.out.println("],  holder_ID: "+n.holder_id+ " ha richiesto token? "+n.requested );
             }             
            
             recover_internal_varibles();
@@ -419,16 +409,16 @@ public class Node extends AbstractActor {
         System.out.println(this);
     }
     
-    public String toString(){        
-        String ret = "PRINT \t \t Node id: "+this.id+ " has token: "+this.token+" has send reqest for token: "+this.requested+ " with mq queue: [";
+    public String toString(){
+        String ret = "--------------------------------------------------------------------------------------------------------------";
+        ret += "\nDATA RECOVERED: \t \t Node id: "+this.id+ " has token: "+this.token+" has send reqest for token: "+this.requested+ " with mq queue: [";
         for (int i = 0; i < this.mq.size(); i++) {
             ret += this.mq.get(i).req_node_id + ", ";
         }
-        ret += "] \n";
+        ret += "] \n--------------------------------------------------------------------------------------------------------------";
         
         return ret;
     }
-    
 
     @Override
     public Receive createReceive() {
@@ -449,7 +439,6 @@ public class Node extends AbstractActor {
     }
     
     //all the message classes
-
     public static class TreeCreation implements Serializable {
         private final List<ActorRef> tree; // list of group members
 
@@ -564,9 +553,4 @@ public class Node extends AbstractActor {
             return neighbor_id;
         }
     }
-    
-
-
-
-
 }
