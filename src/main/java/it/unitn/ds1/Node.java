@@ -3,14 +3,10 @@ package it.unitn.ds1;
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import akka.actor.Props;
-import static it.unitn.ds1.Dme.neighbor;
 import scala.concurrent.duration.Duration;
-
 import java.io.Serializable;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-
-//TODO: verficare se il nodo non si è fermato perchè era nella cs allora non può nemmeno ripartire!
 
 public class Node extends AbstractActor {
     // Node id
@@ -56,7 +52,7 @@ public class Node extends AbstractActor {
     public Node(int id, Integer[] neighbors) {
         this.id = id;
         this.neighbors_id = Arrays.asList(neighbors);
-        this.neighbors_ref = new ArrayList<>();        
+        this.neighbors_ref = new ArrayList<>();
     }
 
     static public Props props(int id, Integer[] neighbors) {        
@@ -172,7 +168,7 @@ public class Node extends AbstractActor {
         unicast(pv, rq.senderId);
 
         // Rimuovo tutte le richieste in quanto le ho inoltrate con il messaggio di PRIVILEGIO al nuovo owner del token
-        this.mq.clear();
+        this.mq.remove(0);
     }
 
     /**
@@ -352,6 +348,7 @@ public class Node extends AbstractActor {
             System.out.println("]");
             System.out.println("................................................................................\n");
 
+            getContext().parent().tell(new Terminated(), this.getSelf());
             getContext().stop(getSelf());
         }else{
             System.out.println("STOP: \t\t Node " + this.id + "is in the CS and can't be stopped! try to stop it later");
@@ -528,6 +525,8 @@ public class Node extends AbstractActor {
     public static class Stop implements Serializable {}
     
     public static class Restart implements Serializable {}
+
+    public static class Terminated implements Serializable {}
         
     public static class RecoverRequest implements Serializable {
         public int id;

@@ -1,30 +1,29 @@
 package it.unitn.ds1;
 
-import akka.actor.ActorRef;
-import akka.actor.ActorSystem;
-import java.io.BufferedReader;
+import akka.actor.*;
+
 import scala.concurrent.duration.Duration;
 
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
-public class Dme {
-    
-    static List<ActorRef> tree;
+public class Dme{
     static ActorSystem system;
-    static List<Integer[]> neighbor;
-    static Integer N_nodi;
-    
+    static ActorRef master = null;
+
     public static void main(String[] args){
-        
         system = ActorSystem.create("dme");
+        master = system.actorOf(Props.create(ParentNode.class));
+    }
+}
+
+class ParentNode extends AbstractActor{
+    static List<ActorRef> tree;
+    static List<Integer[]> neighbor;
+
+    public ParentNode(){
         tree = new LinkedList<ActorRef>();
         neighbor = new ArrayList<>();
         neighbor.add(new Integer[]{1});
@@ -33,22 +32,20 @@ public class Dme {
         neighbor.add(new Integer[]{2, 4, 5});
         neighbor.add(new Integer[]{3});
         neighbor.add(new Integer[]{3});
-                
-        
-                
+
         for(int id=0; id<neighbor.size(); id++){
-            tree.add(system.actorOf(
-                Node.props(id, neighbor.get(id)), "node"+id));
+            tree.add(context().actorOf(
+                    Node.props(id, neighbor.get(id)), "node"+id));
         }
 
-        
+
         // Ensure that no one can modify the group
         //tree = Collections.unmodifiableList(tree);
 
         // Send the tree node list to everyone in the group
         Node.TreeCreation join = new Node.TreeCreation(tree);
         for (ActorRef peer : tree) {
-            peer.tell(join, null);
+            peer.tell(join, getSelf());
         }
 
         // Flood token position
@@ -59,63 +56,62 @@ public class Dme {
                 Duration.create(1, TimeUnit.SECONDS),
                 Duration.create(5, TimeUnit.SECONDS),
                 tree.get(3), new Node.StartTokenRequest(2000), system.dispatcher(), null);*/
-        system.scheduler().scheduleOnce(
-                Duration.create(1, TimeUnit.SECONDS),                
-                tree.get(5), new Node.StartTokenRequest(30000), system.dispatcher(), null);
-        system.scheduler().scheduleOnce(
-                Duration.create(2, TimeUnit.SECONDS),                
-                tree.get(0), new Node.StartTokenRequest(1000), system.dispatcher(), null);
-        system.scheduler().scheduleOnce(
-                Duration.create(3, TimeUnit.SECONDS),                
-                tree.get(4), new Node.StartTokenRequest(1000), system.dispatcher(), null);
-        
-        system.scheduler().scheduleOnce(
-                Duration.create(10, TimeUnit.SECONDS),
-                tree.get(3), new Node.Stop(), system.dispatcher(), null);
-        
-        if(!tree.get(3).isTerminated()){
-            system.scheduler().scheduleOnce(
-                Duration.create(13, TimeUnit.SECONDS),
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        restart(3);
-                }
-            },system.dispatcher());
-        }
+        getContext().getSystem().scheduler().scheduleOnce(
+                Duration.create(1, TimeUnit.SECONDS),
+                tree.get(3), new Node.StartTokenRequest(30000), getContext().getSystem().dispatcher(), getSelf());
+        getContext().getSystem().scheduler().scheduleOnce(
+                Duration.create(2, TimeUnit.SECONDS),
+                tree.get(0), new Node.StartTokenRequest(1000), getContext().getSystem().dispatcher(), getSelf());
+        getContext().getSystem().scheduler().scheduleOnce(
+                Duration.create(3, TimeUnit.SECONDS),
+                tree.get(4), new Node.StartTokenRequest(1000), getContext().getSystem().dispatcher(), getSelf());
 
-        
-        // schedula creazione 
-        
-        //TODO: stop akka con invio 
-        
+        getContext().getSystem().scheduler().scheduleOnce(
+                Duration.create(10, TimeUnit.SECONDS),
+                tree.get(3), new Node.Stop(), getContext().getSystem().dispatcher(), getSelf());
     }
 
-   
-    
-    private static void restart(int node){         
-            ActorRef a =system.actorOf(
+    private void restart(int node){
+        ActorRef a =  context().actorOf(
                 Node.props(node, neighbor.get(node)), "Node"+node);
-            tree.set(node,a);
-         // Send the tree node list to everyone in the group
+        tree.set(node,a);
+        // Send the tree node list to everyone in the group
         Node.TreeCreation join = new Node.TreeCreation(tree);
         for (ActorRef peer : tree) {
             peer.tell(join, null);
         }
-        tree.get(node).tell(new Node.Restart(),null);
-        
+        tree.get(node).tell(new Node.Restart(), getSelf());
+
     }
 
-    private static void floodTokenPosition(int node) {
+    private void floodTokenPosition(int node) {
         try {
-            Thread.sleep(100);   // aspetto che tutti i nodi siano stati creati   
+            Thread.sleep(100);   // aspetto che tutti i nodi siano stati creati
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
         // Token position flooded
-        tree.get(node).tell(new Node.StartTokenFlood(), null);
+        tree.get(node).tell(new Node.StartTokenFlood(), getSelf());
     }
 
-    
+
+    public void onNodeTerminated(Node.Terminated msg){
+        System.out.println("Varda che son terminato!");
+        getContext().getSystem().scheduler().scheduleOnce(
+                Duration.create(13, TimeUnit.SECONDS),
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        restart(3);
+                    }
+                }, getContext().getSystem().dispatcher());
+    }
+
+    @Override
+    public Receive createReceive() {
+        return receiveBuilder()
+                .match(Node.Terminated.class, this::onNodeTerminated)
+                .build();
+    }
 }
