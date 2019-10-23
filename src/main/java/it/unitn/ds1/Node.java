@@ -42,7 +42,7 @@ public class Node extends AbstractActor {
     // Generatore di random
     private Random rnd = new Random();
     
-    //variabili e classi per la procedura di recovery
+    // Variabili e classi per la procedura di recovery
     static List<Neighbor_data> neighbors_data;       
 
     /**
@@ -60,7 +60,7 @@ public class Node extends AbstractActor {
         
     }
 
-    //dati gli id dei vicini, vado a prendermi gli actor ref e li metto in neighbors_ref!
+    // Dati gli id dei vicini, vado a prendermi gli actor ref e li metto in neighbors_ref!
     private void onTreeCreation(Node.TreeCreation msg) {
         this.tree = msg.tree;
 
@@ -306,6 +306,12 @@ public class Node extends AbstractActor {
         }
     }
 
+    @Override
+    public void postRestart(Throwable reason) throws Exception {
+        super.postRestart(reason);
+        System.out.println("Restart dopo exception!");
+    }
+
     /**
      * Metodo per l'invio di un messaggio in broadcast (tranne se stesso e il sender)
      *
@@ -434,7 +440,8 @@ public class Node extends AbstractActor {
                 .build();
     }
     
-    //all the message classes
+    // All the message classes
+
     public static class TreeCreation implements Serializable {
         private final List<ActorRef> tree; // list of group members
 
@@ -494,7 +501,6 @@ public class Node extends AbstractActor {
         public TokenRequest(int senderId, int req_node_id) {
             this.senderId = senderId;
             this.req_node_id = req_node_id;
-            
         }
 
         public String toString(){

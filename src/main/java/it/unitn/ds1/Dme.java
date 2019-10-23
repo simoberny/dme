@@ -38,7 +38,6 @@ class ParentNode extends AbstractActor{
                     Node.props(id, neighbor.get(id)), "node"+id));
         }
 
-
         // Ensure that no one can modify the group
         //tree = Collections.unmodifiableList(tree);
 
@@ -58,22 +57,20 @@ class ParentNode extends AbstractActor{
                 tree.get(3), new Node.StartTokenRequest(2000), system.dispatcher(), null);*/
         getContext().getSystem().scheduler().scheduleOnce(
                 Duration.create(1, TimeUnit.SECONDS),
-                tree.get(3), new Node.StartTokenRequest(30000), getContext().getSystem().dispatcher(), getSelf());
+                tree.get(5), new Node.StartTokenRequest(30000), getContext().getSystem().dispatcher(), getSelf());
         getContext().getSystem().scheduler().scheduleOnce(
                 Duration.create(2, TimeUnit.SECONDS),
                 tree.get(0), new Node.StartTokenRequest(1000), getContext().getSystem().dispatcher(), getSelf());
         getContext().getSystem().scheduler().scheduleOnce(
-                Duration.create(3, TimeUnit.SECONDS),
+                Duration.create(12, TimeUnit.SECONDS),
                 tree.get(4), new Node.StartTokenRequest(1000), getContext().getSystem().dispatcher(), getSelf());
-
         getContext().getSystem().scheduler().scheduleOnce(
                 Duration.create(10, TimeUnit.SECONDS),
                 tree.get(3), new Node.Stop(), getContext().getSystem().dispatcher(), getSelf());
     }
 
     private void restart(int node){
-        ActorRef a =  context().actorOf(
-                Node.props(node, neighbor.get(node)), "Node"+node);
+        ActorRef a =  context().actorOf(Node.props(node, neighbor.get(node)), "Node" + node);
         tree.set(node,a);
         // Send the tree node list to everyone in the group
         Node.TreeCreation join = new Node.TreeCreation(tree);
@@ -81,7 +78,6 @@ class ParentNode extends AbstractActor{
             peer.tell(join, null);
         }
         tree.get(node).tell(new Node.Restart(), getSelf());
-
     }
 
     private void floodTokenPosition(int node) {
@@ -95,8 +91,7 @@ class ParentNode extends AbstractActor{
         tree.get(node).tell(new Node.StartTokenFlood(), getSelf());
     }
 
-
-    public void onNodeTerminated(Node.Terminated msg){
+    private void onNodeTerminated(Node.Terminated msg){
         System.out.println("Varda che son terminato!");
         getContext().getSystem().scheduler().scheduleOnce(
                 Duration.create(13, TimeUnit.SECONDS),
