@@ -2,7 +2,9 @@ package it.unitn.ds1;
 
 import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
+import akka.actor.DeadLetter;
 import akka.actor.Props;
+import akka.event.LoggingAdapter;
 import scala.concurrent.duration.Duration;
 import java.io.Serializable;
 import java.util.*;
@@ -53,6 +55,8 @@ public class Node extends AbstractActor {
         this.id = id;
         this.neighbors_id = Arrays.asList(neighbors);
         this.neighbors_ref = new ArrayList<>();
+
+        context().system().eventStream().subscribe(this.getSelf(), DeadLetter.class);
     }
 
     static public Props props(int id, Integer[] neighbors) {        
@@ -306,12 +310,6 @@ public class Node extends AbstractActor {
         }
     }
 
-    @Override
-    public void postRestart(Throwable reason) throws Exception {
-        super.postRestart(reason);
-        System.out.println("Restart dopo exception!");
-    }
-
     /**
      * Metodo per l'invio di un messaggio in broadcast (tranne se stesso e il sender)
      *
@@ -422,6 +420,10 @@ public class Node extends AbstractActor {
         return ret;
     }
 
+    private void onDeadLetter(DeadLetter msg){
+        
+    }
+
     @Override
     public Receive createReceive() {
         return receiveBuilder()
@@ -436,10 +438,11 @@ public class Node extends AbstractActor {
                 .match(Node.Restart.class, this::onRestart)
                 .match(Node.Stop.class, this::onStop)
                 .match(Node.RecoverRequest.class, this::onRecoverRequest)
-                .match(Node.Neighbor_data.class, this::onRecoverResponse)                
+                .match(Node.Neighbor_data.class, this::onRecoverResponse)
+                .match(DeadLetter.class, this::onDeadLetter)
                 .build();
     }
-    
+
     // All the message classes
 
     public static class TreeCreation implements Serializable {
