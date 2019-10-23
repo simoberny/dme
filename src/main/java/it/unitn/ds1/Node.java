@@ -45,7 +45,9 @@ public class Node extends AbstractActor {
     private Random rnd = new Random();
     
     // Variabili e classi per la procedura di recovery
-    static List<Neighbor_data> neighbors_data;       
+    static List<Neighbor_data> neighbors_data;   
+
+    private boolean pending_privilegeMessage = false;
 
     /**
      * @param id        ID del nodo da inizializzare
@@ -168,7 +170,7 @@ public class Node extends AbstractActor {
         this.token = false;
         this.holder_id = rq.senderId;
 
-        PrivilegeMessage pv = new PrivilegeMessage(this.id, rq.req_node_id, new ArrayList<>(mq));
+        PrivilegeMessage pv = new PrivilegeMessage(this.id, rq.req_node_id, rq.senderId, new ArrayList<>(mq));
         unicast(pv, rq.senderId);
 
         // Rimuovo tutte le richieste in quanto le ho inoltrate con il messaggio di PRIVILEGIO al nuovo owner del token
@@ -236,7 +238,7 @@ public class Node extends AbstractActor {
                     this.holder_id = m.senderId;
 
                     // Se ho trovato la richiesta, inoltro il privilegio al sender da cui arrivò la richiesta
-                    PrivilegeMessage pv = new PrivilegeMessage(this.id, msg.new_owner, msg.requests);
+                    PrivilegeMessage pv = new PrivilegeMessage(this.id, msg.new_owner,m.senderId, msg.requests);
                     unicast(pv, m.senderId);
                 }
 
@@ -361,7 +363,11 @@ public class Node extends AbstractActor {
     
     private void onRecoverRequest(Node.RecoverRequest m) {
         System.out.println("RECOVER PROCEDURE: \t \t Received a Recover request from "+m.id+" to "+ this.id);
-        unicast(new Neighbor_data(this.id, this.mq, this.holder_id, this.requested), m.id);       
+        unicast(new Neighbor_data(this.id, this.mq, this.holder_id, this.requested), m.id); 
+        if(pending_privilegeMessage){
+            this.holder_id = m.id;
+            pending_privilegeMessage = false;
+        }       
     }
     
     private void onRecoverResponse(Node.Neighbor_data d) {
@@ -380,9 +386,16 @@ public class Node extends AbstractActor {
     }
     
     private void recover_internal_varibles(){
+        this.holder_id = this.id;
         this.token = true;
         for (Neighbor_data n : neighbors_data) { 
-            if(n.holder_id != this.id) this.token = false;
+            if(n.holder_id != this.id){
+                //if all neighbords except one have as holder id my id, I'm not the token holder,                
+                this.token = false; 
+                //and my holder_id is the different one
+                this.holder_id = n.neighbor_id; 
+            }
+            
         }
         if(!this.token){
             Neighbor_data holder = null;
@@ -421,8 +434,35 @@ public class Node extends AbstractActor {
     }
 
     private void onDeadLetter(DeadLetter msg){
-        
+        if(msg.sender().equals(this.getSelf())){
+            if(msg.message().getClass().equals(TokenRequest.class)){
+                //il messagio  era un token            
+                getContext().getSystem().scheduler().scheduleOnce(
+                    Duration.create(2, TimeUnit.SECONDS),
+                    new Runnable() {
+                        @Override
+                        public void run() {
+                            sendTokenRequest(((TokenRequest)msg.message()).req_node_id);
+                        }
+                    }, getContext().getSystem().dispatcher());
+            }else if(msg.message().getClass().equals(PrivilegeMessage.class)){ 
+                //torna indietor il provilege message, quindi l'holder id non può essere il morto
+                this.holder_id = this.id;
+                pending_privilegeMessage = true;
+                getContext().getSystem().scheduler().scheduleOnce(
+                    Duration.create(2, TimeUnit.SECONDS),
+                    new Runnable() {
+                        @Override
+                        public void run() {
+                            PrivilegeMessage m = ((PrivilegeMessage)msg.message());
+                            unicast(m, m.next);
+                        }
+                }, getContext().getSystem().dispatcher());
+            }            
+        }
     }
+    
+   
 
     @Override
     public Receive createReceive() {
@@ -515,6 +555,7 @@ public class Node extends AbstractActor {
         public final int senderId;
         public final int new_owner;
         public final List<TokenRequest> requests;
+        public final int next;
 
         /**
          * Messaggio per la risoluzione della richiesta
@@ -523,10 +564,11 @@ public class Node extends AbstractActor {
          * @param new_owner ID nodo che deterrà il token
          * @param requests  Vettore con le eventuali richieste in sospeso del precedente proprietario
          */
-        public PrivilegeMessage(int senderId, int new_owner, List<TokenRequest> requests) {
+        public PrivilegeMessage(int senderId, int new_owner,int next, List<TokenRequest> requests) {
             this.senderId = senderId;
             this.new_owner = new_owner;
             this.requests = requests;
+            this.next = next;
             
         }
     }

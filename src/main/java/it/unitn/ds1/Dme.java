@@ -57,7 +57,7 @@ class ParentNode extends AbstractActor{
                 tree.get(3), new Node.StartTokenRequest(2000), system.dispatcher(), null);*/
         getContext().getSystem().scheduler().scheduleOnce(
                 Duration.create(1, TimeUnit.SECONDS),
-                tree.get(5), new Node.StartTokenRequest(30000), getContext().getSystem().dispatcher(), getSelf());
+                tree.get(5), new Node.StartTokenRequest(15000), getContext().getSystem().dispatcher(), getSelf());
         getContext().getSystem().scheduler().scheduleOnce(
                 Duration.create(2, TimeUnit.SECONDS),
                 tree.get(0), new Node.StartTokenRequest(1000), getContext().getSystem().dispatcher(), getSelf());
@@ -92,9 +92,8 @@ class ParentNode extends AbstractActor{
     }
 
     private void onNodeTerminated(Node.Terminated msg){
-        System.out.println("Varda che son terminato!");
         getContext().getSystem().scheduler().scheduleOnce(
-                Duration.create(13, TimeUnit.SECONDS),
+                Duration.create(20, TimeUnit.SECONDS),
                 new Runnable() {
                     @Override
                     public void run() {
