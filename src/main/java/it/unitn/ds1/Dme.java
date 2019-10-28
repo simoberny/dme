@@ -1,6 +1,7 @@
 package it.unitn.ds1;
 
 import akka.actor.*;
+import java.io.IOException;
 
 import scala.concurrent.duration.Duration;
 
@@ -50,23 +51,39 @@ class ParentNode extends AbstractActor{
         // Flood token position
         floodTokenPosition(2);
 
-        // Creation of two token request
-        /*system.scheduler().schedule(
+        
+        getContext().getSystem().scheduler().scheduleOnce(
                 Duration.create(1, TimeUnit.SECONDS),
+                tree.get(2), new Node.Stop(), getContext().getSystem().dispatcher(), getSelf());
+        getContext().getSystem().scheduler().scheduleOnce(
+                Duration.create(3, TimeUnit.SECONDS),
+                tree.get(0), new Node.StartTokenRequest(16000), getContext().getSystem().dispatcher(), getSelf());
+        getContext().getSystem().scheduler().scheduleOnce(
                 Duration.create(5, TimeUnit.SECONDS),
-                tree.get(3), new Node.StartTokenRequest(2000), system.dispatcher(), null);*/
-        getContext().getSystem().scheduler().scheduleOnce(
-                Duration.create(1, TimeUnit.SECONDS),
-                tree.get(5), new Node.StartTokenRequest(15000), getContext().getSystem().dispatcher(), getSelf());
-        getContext().getSystem().scheduler().scheduleOnce(
-                Duration.create(2, TimeUnit.SECONDS),
-                tree.get(0), new Node.StartTokenRequest(1000), getContext().getSystem().dispatcher(), getSelf());
+                tree.get(4), new Node.StartTokenRequest(1000), getContext().getSystem().dispatcher(), getSelf());
+       
         getContext().getSystem().scheduler().scheduleOnce(
                 Duration.create(12, TimeUnit.SECONDS),
-                tree.get(4), new Node.StartTokenRequest(1000), getContext().getSystem().dispatcher(), getSelf());
+                tree.get(4), new Node.StartTokenRequest(1000), getContext().getSystem().dispatcher(), getSelf());  
+        
+        try {
+            System.out.println(">>> Press ENTER to exit <<<");
+            System.in.read();
+        } 
+        catch (IOException ioe) {}
+        
+        getContext().getSystem().terminate();
+    }
+    
+    private void onNodeTerminated(Node.Terminated msg){
         getContext().getSystem().scheduler().scheduleOnce(
-                Duration.create(10, TimeUnit.SECONDS),
-                tree.get(3), new Node.Stop(), getContext().getSystem().dispatcher(), getSelf());
+                Duration.create(20, TimeUnit.SECONDS),
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        restart(2);
+                    }
+                }, getContext().getSystem().dispatcher());
     }
 
     private void restart(int node){
@@ -91,16 +108,7 @@ class ParentNode extends AbstractActor{
         tree.get(node).tell(new Node.StartTokenFlood(), getSelf());
     }
 
-    private void onNodeTerminated(Node.Terminated msg){
-        getContext().getSystem().scheduler().scheduleOnce(
-                Duration.create(20, TimeUnit.SECONDS),
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        restart(3);
-                    }
-                }, getContext().getSystem().dispatcher());
-    }
+    
 
     @Override
     public Receive createReceive() {
