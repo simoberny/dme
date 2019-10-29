@@ -133,8 +133,9 @@ public class Node extends AbstractActor {
             // Check if the node is in the CS
             if (!cs && !mq.isEmpty())
                 dequeueAndPrivilege();
-        } else { // Otherwise I forward
+        } else { // Otherwise I forward            
             sendTokenRequest(msg.req_node_id);
+            
         }
     }
 
@@ -177,7 +178,6 @@ public class Node extends AbstractActor {
     private void checkPrivilege(){
         if(this.mq.size()!= 0){
             if(this.mq.get(0).req_node_id == this.id) {
-                System.out.println("CHECK PRIVILEGE: \t \t Mi auto elimino (id): " + this.id);
                 this.mq.remove(0);
             }
         }
@@ -347,17 +347,18 @@ public class Node extends AbstractActor {
             System.out.println("]");
             System.out.println("................................................................................\n");
 
-            getContext().parent().tell(new Terminated(), this.getSelf());
+            getContext().parent().tell(new Terminated(msg.time,this.id), this.getSelf());
             getContext().stop(getSelf());
         }else{
             System.out.println("STOP: \t\t Node " + this.id + "is in the CS and can't be stopped! try to stop it later");
         }
     } 
     
-    private void onRecoverRequest(Node.RecoverRequest m) {
+    private void onRecoverRequest(Node.RecoverRequest m) throws InterruptedException {
         System.out.println("RECOVER PROCEDURE: \t \t Received a Recover request from "+m.id+" to "+ this.id);
         unicast(new Neighbor_data(this.id, this.mq, this.holder_id, this.requested), m.id); 
         if(this.pending_privilegeMessage){
+            Thread.sleep(2000);
             this.holder_id = m.id;
             this.pending_privilegeMessage = false;
         }       
@@ -440,7 +441,7 @@ public class Node extends AbstractActor {
                 System.out.println("RECEIVER NON DISPONIBILE: \t: x invio token request,  da: " + this.id);
 
                 getContext().getSystem().scheduler().scheduleOnce(
-                    Duration.create(2, TimeUnit.SECONDS),
+                    Duration.create(4, TimeUnit.SECONDS),
                     new Runnable() {
                         @Override
                         public void run() {
@@ -578,11 +579,25 @@ public class Node extends AbstractActor {
         }
     }
     
-    public static class Stop implements Serializable {}
+    public static class Stop implements Serializable {
+        public int time;
+        public int node;
+        public Stop(int time,int node){
+            this.time = time; 
+            this.node = node;
+        }
+    }
     
     public static class Restart implements Serializable {}
 
-    public static class Terminated implements Serializable {}
+    public static class Terminated implements Serializable {
+        public int time;
+        public int node;
+        public Terminated(int time, int node){
+            this.time = time;
+            this.node = node;
+        }
+    }
         
     public static class RecoverRequest implements Serializable {
         public int id;

@@ -43,6 +43,14 @@ public class Dme{
                         System.out.println("Second test running...");
                         master.tell(new Test2(), master);
                         break;
+                    case "3":
+                        System.out.println("Third test running...");
+                        master.tell(new Test3(), master);
+                        break;
+                    case "4":
+                        System.out.println("Fourth test running...");
+                        master.tell(new Test4(), master);
+                        break;
                 }
             }
             catch (IOException ioe) {}
@@ -87,17 +95,19 @@ class ParentNode extends AbstractActor{
 
         System.out.println("-------- Select a test ---------");
         System.out.println("1. Multiple request on node within CS");
-        System.out.println("2. Failure of a node and request to it");
+        System.out.println("2. Failure of a node, restarting procedure recover all internal variables");
+        System.out.println("3. Failure of a node, restarting procedure recover variables and send waiting requests");
+        System.out.println("4. Failure of a node, restarting procedure recover variables and send waiting requests and privilege messages");
         System.out.println("---------------------------------");
     }
 
     private void onNodeTerminated(Node.Terminated msg){
         getContext().getSystem().scheduler().scheduleOnce(
-                Duration.create(20, TimeUnit.SECONDS),
+                Duration.create(msg.time, TimeUnit.SECONDS),
                 new Runnable() {
                     @Override
                     public void run() {
-                        restart(2);
+                        restart(msg.node);
                     }
                 }, getContext().getSystem().dispatcher());
     }
@@ -136,31 +146,71 @@ class ParentNode extends AbstractActor{
                 .match(Node.Terminated.class, this::onNodeTerminated)
                 .match(Dme.Test1.class, this::onTest1)
                 .match(Dme.Test2.class, this::onTest2)
+                .match(Dme.Test3.class, this::onTest3)
+                .match(Dme.Test4.class, this::onTest4)
                 .build();
     }
 
-    private void onTest1(Dme.Test1 msg){
+    private void onTest1(Dme.Test1 msg){        
         getContext().getSystem().scheduler().scheduleOnce(
                 Duration.create(1, TimeUnit.SECONDS),
-                tree.get(2), new Node.Stop(), getContext().getSystem().dispatcher(), getSelf());
+                tree.get(5), new Node.StartTokenRequest(12000), getContext().getSystem().dispatcher(), getSelf());
         getContext().getSystem().scheduler().scheduleOnce(
-                Duration.create(3, TimeUnit.SECONDS),
-                tree.get(0), new Node.StartTokenRequest(16000), getContext().getSystem().dispatcher(), getSelf());
+                Duration.create(4, TimeUnit.SECONDS),
+                tree.get(0), new Node.StartTokenRequest(1000), getContext().getSystem().dispatcher(), getSelf());
         getContext().getSystem().scheduler().scheduleOnce(
-                Duration.create(5, TimeUnit.SECONDS),
+                Duration.create(8, TimeUnit.SECONDS),
                 tree.get(4), new Node.StartTokenRequest(1000), getContext().getSystem().dispatcher(), getSelf());
-        getContext().getSystem().scheduler().scheduleOnce(
-                Duration.create(12, TimeUnit.SECONDS),
-                tree.get(4), new Node.StartTokenRequest(1000), getContext().getSystem().dispatcher(), getSelf());
+        
     }
 
     private void onTest2(Dme.Test2 msg){
+        getContext().getSystem().scheduler().scheduleOnce(
+                Duration.create(1, TimeUnit.SECONDS),
+                tree.get(5), new Node.StartTokenRequest(25000), getContext().getSystem().dispatcher(), getSelf());
+        getContext().getSystem().scheduler().scheduleOnce(
+                Duration.create(4, TimeUnit.SECONDS),
+                tree.get(0), new Node.StartTokenRequest(1000), getContext().getSystem().dispatcher(), getSelf());
+        getContext().getSystem().scheduler().scheduleOnce(
+                Duration.create(8, TimeUnit.SECONDS),
+                tree.get(4), new Node.StartTokenRequest(1000), getContext().getSystem().dispatcher(), getSelf());
+        getContext().getSystem().scheduler().scheduleOnce(
+                Duration.create(12, TimeUnit.SECONDS),
+                tree.get(3), new Node.Stop(4,3), getContext().getSystem().dispatcher(), getSelf());
+        
+        
 
     }
     private void onTest3(Dme.Test3 msg){
+        getContext().getSystem().scheduler().scheduleOnce(
+                Duration.create(1, TimeUnit.SECONDS),
+                tree.get(3), new Node.StartTokenRequest(1000), getContext().getSystem().dispatcher(), getSelf());
+        getContext().getSystem().scheduler().scheduleOnce(
+                Duration.create(4, TimeUnit.SECONDS),
+                tree.get(3), new Node.Stop(12,3), getContext().getSystem().dispatcher(), getSelf());
+        
+        getContext().getSystem().scheduler().scheduleOnce(
+                Duration.create(8, TimeUnit.SECONDS),
+                tree.get(0), new Node.StartTokenRequest(1000), getContext().getSystem().dispatcher(), getSelf());
+        getContext().getSystem().scheduler().scheduleOnce(
+                Duration.create(12, TimeUnit.SECONDS),
+                tree.get(4), new Node.StartTokenRequest(1000), getContext().getSystem().dispatcher(), getSelf());
+        
 
     }
     private void onTest4(Dme.Test4 msg){
+        getContext().getSystem().scheduler().scheduleOnce(
+                Duration.create(1, TimeUnit.SECONDS),
+                tree.get(5), new Node.StartTokenRequest(16000), getContext().getSystem().dispatcher(), getSelf());       
+        getContext().getSystem().scheduler().scheduleOnce(
+                Duration.create(4, TimeUnit.SECONDS),
+                tree.get(0), new Node.StartTokenRequest(1000), getContext().getSystem().dispatcher(), getSelf());
+        getContext().getSystem().scheduler().scheduleOnce(
+                Duration.create(8, TimeUnit.SECONDS),
+                tree.get(3), new Node.Stop(12,3), getContext().getSystem().dispatcher(), getSelf());
+        getContext().getSystem().scheduler().scheduleOnce(
+                Duration.create(12, TimeUnit.SECONDS),
+                tree.get(4), new Node.StartTokenRequest(1000), getContext().getSystem().dispatcher(), getSelf());
 
     }
 }
