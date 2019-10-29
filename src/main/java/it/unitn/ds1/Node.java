@@ -358,7 +358,7 @@ public class Node extends AbstractActor {
         System.out.println("RECOVER PROCEDURE: \t \t Received a Recover request from "+m.id+" to "+ this.id);
         unicast(new Neighbor_data(this.id, this.mq, this.holder_id, this.requested), m.id); 
         if(this.pending_privilegeMessage){
-            Thread.sleep(2000);
+            Thread.sleep(3000);
             this.holder_id = m.id;
             this.pending_privilegeMessage = false;
         }       
