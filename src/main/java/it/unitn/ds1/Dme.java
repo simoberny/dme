@@ -51,6 +51,8 @@ public class Dme{
 
     public static class Test1 implements Serializable {}
     public static class Test2 implements Serializable {}
+    public static class Test3 implements Serializable {}
+    public static class Test4 implements Serializable {}
 }
 
 class ParentNode extends AbstractActor{
@@ -153,6 +155,12 @@ class ParentNode extends AbstractActor{
     }
 
     private void onTest2(Dme.Test2 msg){
+
+    }
+    private void onTest3(Dme.Test3 msg){
+
+    }
+    private void onTest4(Dme.Test4 msg){
 
     }
 }
