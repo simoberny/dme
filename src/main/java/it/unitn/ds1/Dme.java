@@ -151,6 +151,7 @@ class ParentNode extends AbstractActor{
                 .build();
     }
 
+    /* Multiple request on node within CS */
     private void onTest1(Dme.Test1 msg){        
         getContext().getSystem().scheduler().scheduleOnce(
                 Duration.create(1, TimeUnit.SECONDS),
@@ -161,9 +162,9 @@ class ParentNode extends AbstractActor{
         getContext().getSystem().scheduler().scheduleOnce(
                 Duration.create(8, TimeUnit.SECONDS),
                 tree.get(4), new Node.StartTokenRequest(1000), getContext().getSystem().dispatcher(), getSelf());
-        
     }
 
+    /* Failure of a node, restarting procedure recover all internal variables */
     private void onTest2(Dme.Test2 msg){
         getContext().getSystem().scheduler().scheduleOnce(
                 Duration.create(1, TimeUnit.SECONDS),
@@ -177,10 +178,9 @@ class ParentNode extends AbstractActor{
         getContext().getSystem().scheduler().scheduleOnce(
                 Duration.create(12, TimeUnit.SECONDS),
                 tree.get(3), new Node.Stop(4,3), getContext().getSystem().dispatcher(), getSelf());
-        
-        
-
     }
+
+    /* Failure of a node, restarting procedure recover variables and send waiting requests */
     private void onTest3(Dme.Test3 msg){
         getContext().getSystem().scheduler().scheduleOnce(
                 Duration.create(1, TimeUnit.SECONDS),
@@ -195,9 +195,9 @@ class ParentNode extends AbstractActor{
         getContext().getSystem().scheduler().scheduleOnce(
                 Duration.create(12, TimeUnit.SECONDS),
                 tree.get(4), new Node.StartTokenRequest(1000), getContext().getSystem().dispatcher(), getSelf());
-        
-
     }
+
+    /* Failure of a node, restarting procedure recover variables and send waiting requests and privilege messages */
     private void onTest4(Dme.Test4 msg){
         getContext().getSystem().scheduler().scheduleOnce(
                 Duration.create(1, TimeUnit.SECONDS),
@@ -211,6 +211,5 @@ class ParentNode extends AbstractActor{
         getContext().getSystem().scheduler().scheduleOnce(
                 Duration.create(12, TimeUnit.SECONDS),
                 tree.get(4), new Node.StartTokenRequest(1000), getContext().getSystem().dispatcher(), getSelf());
-
     }
 }

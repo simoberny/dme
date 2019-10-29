@@ -82,7 +82,7 @@ public class Node extends AbstractActor {
         this.token = true;
         this.holder_id = this.id;
 
-        System.out.println("FLOOD PROCEDURE: \t \t Inizio flood token position!\n");
+        System.out.println("FLOOD PROCEDURE: \t \t Start flood token position!\n");
 
         FloodMsg mx = new FloodMsg(this.id, getSelf(), this.id, 0);
         multicast(mx, getSelf());
@@ -107,7 +107,7 @@ public class Node extends AbstractActor {
     private void onStartTokenRequest(Node.StartTokenRequest msg) {
         if (!this.requested && !this.token) { // If is not the token and has not already send a request      
             this.duration = msg.cs_duration;
-            System.out.println("TOKEN REQUEST: \t \t Avvio richiesta token da " + this.id);
+            System.out.println("TOKEN REQUEST: \t \t Start token reuqest from " + this.id);
             
             TokenRequest re = new TokenRequest(this.id, this.id);
             this.mq.add(re);
@@ -126,7 +126,7 @@ public class Node extends AbstractActor {
             this.mq.add(msg);
         
         if (this.token) { // if I own the token
-            System.out.println("TOKEN REQUEST: \t \t Richiesta arrivata! da (sender): " + msg.senderId + " per conto di (richiesta) " + msg.req_node_id);
+            System.out.println("TOKEN REQUEST: \t \t Request arrived! from (sender): " + msg.senderId + " for (request node) " + msg.req_node_id);
 
             checkPrivilege();
 
@@ -144,7 +144,7 @@ public class Node extends AbstractActor {
      * @param source_req ID of node generating the request
      */
     private void sendTokenRequest(int source_req) {
-        System.out.println("TOKEN REQUEST: \t \t Nodo " + this.id + " richiede il token a " + this.holder_id + " da parte di " + source_req );
+        System.out.println("TOKEN REQUEST: \t \t Node " + this.id + " ask token to " + this.holder_id + " from " + source_req );
         this.requested = true;
         
         // Generate request and send in unicast
@@ -159,7 +159,7 @@ public class Node extends AbstractActor {
         // Get the first request
         TokenRequest rq = this.mq.get(0);
 
-        System.out.print("TOKEN REQUEST: \t \t Accetto richiesta del nodo " + rq.req_node_id + " -- Mando privilegio a " + rq.senderId + " con coda richieste [");
+        System.out.print("TOKEN REQUEST: \t \t Accept request from node " + rq.req_node_id + " -- Send privilege to " + rq.senderId + " with requests queue [");
         for (int i = 0; i < mq.size(); i++) System.out.print(this.mq.get(i).req_node_id + ", ");
         System.out.println("]");
 
@@ -188,7 +188,7 @@ public class Node extends AbstractActor {
      * @param msg Contain sender id and queue of not served requests 
      */
     private void onPrivilegeMessage(PrivilegeMessage msg) {
-        System.out.print("PRIVILEGE MESSAGE: \t \t lista locale nodo: " + this.id + " : [");
+        System.out.print("PRIVILEGE MESSAGE: \t \t Node local list: " + this.id + " : [");
         for (int i = 0; i < this.mq.size(); i++) System.out.print(this.mq.get(i).req_node_id + ", ");
         System.out.println("] ");
             
@@ -197,7 +197,7 @@ public class Node extends AbstractActor {
             if(notInList(i)){
                 TokenRequest t = new TokenRequest(msg.senderId, i.req_node_id);
                 this.mq.add(t);
-                System.out.println("PRIVILEGE MESSAGE: \t \t +  Aggiungo a lista: " + i.req_node_id);
+                System.out.println("PRIVILEGE MESSAGE: \t \t +  Add to local list: " + i.req_node_id);
             }
         }        
 
@@ -207,7 +207,7 @@ public class Node extends AbstractActor {
             this.requested = false;
 
             System.out.println("\n----------------------------------------------------------------------------------------------------");
-            System.out.print("PRIVILEGE MESSAGE: \t \t \t Nuovo proprietario token! " + " Nodo - " + this.id + " con coda di richieste: [");
+            System.out.print("PRIVILEGE MESSAGE: \t \t \t New token owner! " + " Nodes - " + this.id + " with requests queue: [");
             for (int i = 0; i < mq.size(); i++) System.out.print(mq.get(i).req_node_id + ", ");
             System.out.println("]");
             System.out.println("----------------------------------------------------------------------------------------------------");
@@ -223,7 +223,7 @@ public class Node extends AbstractActor {
                 if (m.req_node_id == msg.new_owner) {
                     I.remove();                    
 
-                    System.out.print("PRIVILEGE MESSAGE: \t \t Inoltro privilegio a " + m.senderId + " con coda [");
+                    System.out.print("PRIVILEGE MESSAGE: \t \t Forward privilege to " + m.senderId + " with queue [");
                     for (int i = 0; i < msg.requests.size(); i++) System.out.print(msg.requests.get(i).req_node_id + ", ");
                     System.out.println("] \n");
 
@@ -342,7 +342,7 @@ public class Node extends AbstractActor {
     private void onStop(Node.Stop msg) {
         if(!cs){
             System.out.println("\n................................................................................");
-            System.out.print("STOP: \t\t Node " + this.id + " stopping... La mia coda: [");
+            System.out.print("STOP: \t\t Node " + this.id + " stopping... My queue: [");
             for (int i = 0; i < mq.size(); i++) System.out.print(mq.get(i).req_node_id + ", ");
             System.out.println("]");
             System.out.println("................................................................................\n");
@@ -438,7 +438,7 @@ public class Node extends AbstractActor {
     private void onDeadLetter(DeadLetter msg){
         if(msg.sender().equals(this.getSelf())){
             if(msg.message().getClass().equals(TokenRequest.class)){ //Message is a TokenRequest  
-                System.out.println("RECEIVER NON DISPONIBILE: \t: x invio token request,  da: " + this.id);
+                System.out.println("RECEIVER NON DISPONIBILE: \t: Nodes not available, token request from: " + this.id);
 
                 getContext().getSystem().scheduler().scheduleOnce(
                     Duration.create(4, TimeUnit.SECONDS),
@@ -458,7 +458,7 @@ public class Node extends AbstractActor {
                         @Override
                         public void run() {
                             PrivilegeMessage m = ((PrivilegeMessage)msg.message());
-                            System.out.println("RECEIVER NON DISPONIBILE: \t: nodo: " + m.next + " non dispnibile per privilegeM, messagio inviato da: " + m.senderId);
+                            System.out.println("RECEIVER NON DISPONIBILE: \t: nodes: " + m.next + " not available, message sent from: " + m.senderId);
 
                             unicast(m, m.next);
                         }
@@ -466,8 +466,6 @@ public class Node extends AbstractActor {
             }            
         }
     }
-    
-   
 
     @Override
     public Receive createReceive() {
